@@ -128,6 +128,7 @@ export default function App() {
   });
   const [executingTools, setExecutingTools] = useState(false);
   const [modelCapabilities, setModelCapabilities] = useState<string[]>([]);
+  const [capabilitiesChecked, setCapabilitiesChecked] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [pullProgress, setPullProgress] = useState<{
     status: string;
@@ -263,9 +264,11 @@ export default function App() {
   // Check model capabilities when selected model changes
   useEffect(() => {
     if (selectedModel && endpoint) {
+      setCapabilitiesChecked(false);
       checkModelCapabilities(selectedModel);
     } else {
       setModelCapabilities([]);
+      setCapabilitiesChecked(true);
     }
   }, [selectedModel, endpoint]);
 
@@ -385,6 +388,8 @@ export default function App() {
     } catch (err) {
       console.warn('Failed to check model capabilities:', err);
       setModelCapabilities([]);
+    } finally {
+      setCapabilitiesChecked(true);
     }
   };
 
@@ -863,7 +868,8 @@ export default function App() {
       ];
 
       // If tools are enabled but model doesn't support them, show notice and continue without tools
-      if (toolsEnabled && !modelSupportsTools && toolRegistry.getToolDefinitions().length > 0) {
+      // Only show notice if we've actually checked capabilities (not just empty from initial state)
+      if (toolsEnabled && capabilitiesChecked && !modelSupportsTools && toolRegistry.getToolDefinitions().length > 0) {
         const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
         await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
         return;
