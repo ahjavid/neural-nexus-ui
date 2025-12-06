@@ -127,6 +127,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : true;
   });
   const [executingTools, setExecutingTools] = useState(false);
+  const [modelCapabilities, setModelCapabilities] = useState<string[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [pullProgress, setPullProgress] = useState<{
     status: string;
@@ -259,6 +260,15 @@ export default function App() {
     checkConnection();
   }, []);
 
+  // Check model capabilities when selected model changes
+  useEffect(() => {
+    if (selectedModel && endpoint) {
+      checkModelCapabilities(selectedModel);
+    } else {
+      setModelCapabilities([]);
+    }
+  }, [selectedModel, endpoint]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -355,6 +365,27 @@ export default function App() {
 
   const updateCurrentSession = (updates: Partial<Session>) => {
     setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, ...updates } : s));
+  };
+
+  // Check model capabilities via /api/show
+  const checkModelCapabilities = async (modelName: string) => {
+    try {
+      const response = await fetch(`${endpoint}/api/show`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelName })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setModelCapabilities(data.capabilities || []);
+      } else {
+        setModelCapabilities([]);
+      }
+    } catch (err) {
+      console.warn('Failed to check model capabilities:', err);
+      setModelCapabilities([]);
+    }
   };
 
   const switchPersona = (type: PersonaType) => {
@@ -821,8 +852,9 @@ export default function App() {
     abortControllerRef.current = new AbortController();
 
     try {
-      // Get enabled tools if tools are globally enabled
-      const tools = toolsEnabled ? toolRegistry.getToolDefinitions() : [];
+      // Get enabled tools only if tools are globally enabled AND model supports tools
+      const modelSupportsTools = modelCapabilities.includes('tools');
+      const tools = (toolsEnabled && modelSupportsTools) ? toolRegistry.getToolDefinitions() : [];
       
       // Build chat messages for API
       let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }> = [
@@ -830,7 +862,14 @@ export default function App() {
         ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
       ];
 
-      // If tools are enabled, try to use them (with fallback for unsupported models)
+      // If tools are enabled but model doesn't support them, show notice and continue without tools
+      if (toolsEnabled && !modelSupportsTools && toolRegistry.getToolDefinitions().length > 0) {
+        const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
+        await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
+        return;
+      }
+
+      // If tools are enabled and model supports them, use tool calling flow
       if (tools.length > 0) {
         let maxIterations = 5; // Prevent infinite loops
         let iteration = 0;
@@ -896,7 +935,7 @@ export default function App() {
               break;
             }
           } catch (toolErr) {
-            // Check if model doesn't support tools (400 Bad Request)
+            // Check if model doesn't support tools (400 Bad Request) - fallback in case capabilities check missed it
             const errMsg = (toolErr as Error).message;
             if (errMsg.includes('400') || errMsg.toLowerCase().includes('bad request')) {
               console.warn('Model does not support tool calling, falling back to streaming mode');
@@ -910,7 +949,7 @@ export default function App() {
           }
         }
         
-        // If tools weren't supported, fall back to streaming with a notice
+        // If tools weren't supported (runtime error), fall back to streaming with a notice
         if (!toolsSupported) {
           // Reset chat messages (remove any tool-related messages)
           chatMessages = [
@@ -919,50 +958,8 @@ export default function App() {
           ];
           
           // Stream the response with a notice about tool limitation
-          const toolNotice = '⚠️ **Note:** This model does not support tool calling. Attempting to parse tool calls from response...\n\n';
-          const streamedContent = await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
-          
-          // Check if the model output a JSON tool call in text format
-          const toolCallMatch = streamedContent.match(/\{\s*"name"\s*:\s*"(\w+)"\s*,\s*"arguments"\s*:\s*(\{[^}]+\})\s*\}/s);
-          if (toolCallMatch && toolsEnabled) {
-            const toolName = toolCallMatch[1];
-            const toolArgs = JSON.parse(toolCallMatch[2]);
-            
-            // Check if we have this tool
-            const toolDef = toolRegistry.getToolDefinitions().find(t => t.function.name === toolName);
-            if (toolDef) {
-              setExecutingTools(true);
-              
-              // Execute the tool
-              const toolCall: ToolCall = {
-                type: 'function',
-                function: { name: toolName, arguments: toolArgs }
-              };
-              const toolResults = await toolRegistry.executeToolCalls([toolCall]);
-              
-              setExecutingTools(false);
-              
-              // Update the message with tool result
-              const toolResultContent = `\n\n---\n\n**🔧 Tool Result (${toolName}):**\n${toolResults[0].result}`;
-              
-              setSessions(prev => prev.map(s => {
-                if (s.id === currentSessionId) {
-                  const lastMsg = s.messages[s.messages.length - 1];
-                  if (lastMsg && lastMsg.role === 'assistant') {
-                    const elapsed = (Date.now() - startTime) / 1000;
-                    return {
-                      ...s,
-                      messages: [
-                        ...s.messages.slice(0, -1),
-                        { ...lastMsg, content: lastMsg.content + toolResultContent, timing: elapsed.toFixed(1) }
-                      ]
-                    };
-                  }
-                }
-                return s;
-              }));
-            }
-          }
+          const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
+          await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
         }
       } else {
         // No tools, use streaming as before
