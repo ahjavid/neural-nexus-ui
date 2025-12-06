@@ -120,8 +120,8 @@ const fetchUrl: ToolHandler = async (args) => {
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
     
     // Use CORS proxy to bypass browser restrictions
-    // allorigins.win is a free CORS proxy
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    // codetabs.com is a free CORS proxy
+    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
     
     const response = await fetch(proxyUrl, {
       signal: controller.signal,
@@ -220,7 +220,7 @@ const webSearch: ToolHandler = async (args) => {
     
     // Use DuckDuckGo HTML search via CORS proxy
     const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
+    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(searchUrl)}`;
     
     const response = await fetch(proxyUrl, {
       signal: controller.signal,
