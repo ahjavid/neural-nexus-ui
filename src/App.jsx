@@ -266,15 +266,71 @@ const VoiceModeOverlay = ({ isOpen, onClose, isSpeaking, isListening, transcript
   );
 };
 
+// --- Storage Utilities ---
+const getStorageUsage = () => {
+  let total = 0;
+  for (let key in localStorage) {
+    if (localStorage.hasOwnProperty(key)) {
+      total += localStorage.getItem(key).length * 2; // UTF-16 = 2 bytes per char
+    }
+  }
+  return total;
+};
+
+const formatBytes = (bytes) => {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+};
+
+const safeLocalStorageSet = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      console.error('localStorage quota exceeded');
+      return false;
+    }
+    throw e;
+  }
+};
+
+// Strip large content from messages before saving to localStorage
+const prepareSessionsForStorage = (sessions) => {
+  return sessions.map(session => ({
+    ...session,
+    messages: session.messages.map(msg => ({
+      ...msg,
+      // Keep only metadata for attachments, not the full content
+      attachments: msg.attachments?.map(att => ({
+        type: att.type,
+        name: att.name,
+        size: att.size,
+        ext: att.ext
+        // Intentionally omit 'content' to save space
+      })),
+      // Don't store base64 images in localStorage (they're only for the API call)
+      images: undefined
+    }))
+  }));
+};
+
 // --- Main Application ---
 
 export default function App() {
   // State: Core
   const [sessions, setSessions] = useState(() => {
-    const saved = localStorage.getItem('ollama_sessions');
-    return saved ? JSON.parse(saved) : [{ id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() }];
+    try {
+      const saved = localStorage.getItem('ollama_sessions');
+      return saved ? JSON.parse(saved) : [{ id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() }];
+    } catch (e) {
+      console.error('Failed to load sessions from localStorage:', e);
+      return [{ id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() }];
+    }
   });
   const [currentSessionId, setCurrentSessionId] = useState(sessions[0].id);
+  const [storageWarning, setStorageWarning] = useState(null);
 
   // State: Knowledge Base
   const [knowledgeBase, setKnowledgeBase] = useState(() => {
@@ -333,8 +389,24 @@ export default function App() {
 
   // --- Effects ---
 
-  useEffect(() => { localStorage.setItem('ollama_sessions', JSON.stringify(sessions)); }, [sessions]);
-  useEffect(() => { localStorage.setItem('ollama_knowledge', JSON.stringify(knowledgeBase)); }, [knowledgeBase]);
+  useEffect(() => { 
+    const stripped = prepareSessionsForStorage(sessions);
+    const success = safeLocalStorageSet('ollama_sessions', JSON.stringify(stripped));
+    if (!success) {
+      setStorageWarning('Storage full! Old sessions may not be saved. Consider clearing chat history.');
+    } else {
+      const usage = getStorageUsage();
+      if (usage > 4 * 1024 * 1024) { // Warn at 4MB (limit is ~5MB)
+        setStorageWarning(`Storage nearly full (${formatBytes(usage)} / 5 MB)`);
+      } else {
+        setStorageWarning(null);
+      }
+    }
+  }, [sessions]);
+  useEffect(() => { 
+    const success = safeLocalStorageSet('ollama_knowledge', JSON.stringify(knowledgeBase));
+    if (!success) setStorageWarning('Storage full! Knowledge base may not be saved.');
+  }, [knowledgeBase]);
   useEffect(() => { localStorage.setItem('ollama_endpoint', endpoint); }, [endpoint]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [sessions, currentSessionId, streaming]);
   useEffect(() => { checkConnection(); }, []);
@@ -777,7 +849,9 @@ export default function App() {
     const knowledgeContext = knowledgeBase.filter(k => activeKnowledgeIds.includes(k.id)).map(k => `\n--- KNOWLEDGE: ${k.title} ---\n${k.content}\n`).join('');
 
     let fullContent = txt + fileContexts + knowledgeContext;
-    const userMsg = { role: 'user', content: fullContent, displayContent: txt, images: images, attachments: attachments };
+    // Store attachment metadata only (not full content) to save localStorage space
+    const attachmentMeta = attachments.map(att => ({ type: att.type, name: att.name, size: att.size, ext: att.ext }));
+    const userMsg = { role: 'user', content: fullContent, displayContent: txt, images: images, attachments: attachmentMeta };
     
     const startTime = Date.now();
     const updatedMessages = [...messages, userMsg];
@@ -1139,6 +1213,15 @@ export default function App() {
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Storage Warning Banner */}
+        {storageWarning && (
+          <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2 flex items-center justify-center gap-3">
+            <AlertTriangle size={16} className="text-yellow-400" />
+            <span className="text-sm text-yellow-300">{storageWarning}</span>
+            <button onClick={() => setStorageWarning(null)} className="text-yellow-400 hover:text-yellow-300 ml-2"><X size={14} /></button>
+          </div>
+        )}
 
         {/* Input Area */}
         <div className="p-4 md:p-6 bg-[#09090b]">
