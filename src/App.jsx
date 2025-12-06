@@ -488,17 +488,19 @@ export default function App() {
 
   // File upload configuration
   const FILE_CONFIG = {
-    maxImageSize: 5 * 1024 * 1024,  // 5MB for images
-    maxTextSize: 1 * 1024 * 1024,   // 1MB for text files
+    maxImageSize: 20 * 1024 * 1024,  // 20MB for images
+    maxTextSize: 10 * 1024 * 1024,   // 10MB for text files
     allowedTextExtensions: [
-      '.txt', '.md', '.markdown', '.json', '.xml', '.csv', '.tsv',
+      '.txt', '.md', '.markdown', '.rmd', '.json', '.xml', '.csv', '.tsv',
       '.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
       '.cs', '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.scala',
       '.html', '.css', '.scss', '.sass', '.less',
       '.sql', '.sh', '.bash', '.zsh', '.ps1', '.bat',
       '.yaml', '.yml', '.toml', '.ini', '.env', '.conf', '.config',
       '.log', '.gitignore', '.dockerignore', 'Dockerfile', 'Makefile',
-      '.r', '.R', '.jl', '.lua', '.pl', '.pm'
+      '.r', '.R', '.jl', '.lua', '.pl', '.pm', '.ipynb', '.tex', '.bib',
+      '.rst', '.asciidoc', '.org', '.nix', '.zig', '.v', '.ex', '.exs', '.erl', '.hrl',
+      '.hs', '.ml', '.mli', '.clj', '.cljs', '.lisp', '.el', '.vim', '.fish'
     ],
     allowedImageTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
   };
@@ -1179,7 +1181,7 @@ export default function App() {
 
             <div className={`relative bg-[#18181b] rounded-xl flex items-end p-2 border transition-colors shadow-2xl ${streaming ? 'border-indigo-500/30' : 'border-gray-700 hover:border-gray-600'}`}>
               <div className="pb-1 pl-1 flex flex-col gap-1">
-                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple accept="image/*,.txt,.md,.json,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.h,.cs,.go,.rs,.rb,.php,.swift,.kt,.html,.css,.scss,.sql,.sh,.yaml,.yml,.toml,.xml,.csv,.log,.env,.conf" />
+                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple accept="image/*,.txt,.md,.rmd,.markdown,.json,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.scala,.html,.css,.scss,.sass,.less,.sql,.sh,.bash,.yaml,.yml,.toml,.xml,.csv,.tsv,.log,.env,.conf,.config,.ini,.r,.R,.jl,.lua,.pl,.ipynb,.tex,.bib,.rst,.zig,.ex,.exs,.hs,.ml,.clj,.vim,.fish" />
                  <button onClick={() => fileInputRef.current?.click()} disabled={streaming || !selectedModel} className="p-2 text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50" title="Attach">
                    <Plus size={20} />
                  </button>
