@@ -4,6 +4,8 @@ A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI m
 
 ![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green)
 
+![Neural Nexus UI Demo](assets/ui_screenshot.gif)
+
 ## ✨ Features
 
 - **🎨 Modern Dark UI** - Beautiful, responsive interface with smooth animations
