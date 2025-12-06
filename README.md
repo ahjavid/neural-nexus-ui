@@ -9,10 +9,11 @@ A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI m
 ## ✨ Features
 
 - **🎨 Modern Dark UI** - Beautiful, responsive interface with smooth animations
+- **🧠 Neurosymbolic AI Search** - Hybrid search combining neural embeddings with symbolic reasoning
 - **🗣️ Voice Mode** - Hands-free conversation with speech recognition and text-to-speech
 - **🔧 Tool Calling** - AI can use tools for calculations, web search, RAG, and more
 - **🔍 Tavily Search** - AI-powered web search with direct answers (API key required)
-- **🧠 RAG Search** - Semantic search through your documents using embeddings
+- **📊 Knowledge Graph** - Automatic entity extraction and relation building
 - **📚 Knowledge Base** - Upload files, fetch URLs, or paste text for context
 - **🎭 Personas** - Switch between chat modes (Default, Coder, Writer, Analyst)
 - **🧘 Zen Mode** - Distraction-free, minimal interface
@@ -123,6 +124,7 @@ neural-nexus-ui/
 │   ├── utils/            # Utility functions
 │   │   ├── documents.ts  # PDF/Word/Excel processing + chunking
 │   │   ├── helpers.ts    # Formatting helpers
+│   │   ├── neurosymbolic.ts # Neurosymbolic AI (entity extraction, knowledge graph, hybrid search)
 │   │   ├── storage.ts    # IndexedDB manager
 │   │   ├── tools.ts      # Tool registry and handlers
 │   │   └── index.ts
@@ -241,6 +243,7 @@ Neural Nexus can extract text from various document formats for AI analysis:
 The Knowledge Base allows you to add persistent context that can be:
 1. **Injected into conversations** - Check entries to include them in system prompt
 2. **Searched semantically** - Use RAG search to find relevant content
+3. **Analyzed with Neurosymbolic AI** - Automatic entity extraction and knowledge graph
 
 ### Adding Content
 
@@ -256,6 +259,97 @@ Large documents are automatically split for better RAG retrieval:
 - **Chunk size**: ~1000 characters
 - **Overlap**: 200 characters (maintains context continuity)
 - **Sentence-aware**: Won't cut in the middle of sentences
+- **Entity extraction**: Each chunk is analyzed for entities and keywords
+
+## 🧠 Neurosymbolic AI Search
+
+Neural Nexus uses a **hybrid neurosymbolic approach** that combines:
+- **Neural**: Embedding-based semantic similarity (like traditional RAG)
+- **Symbolic**: Entity extraction, keyword matching, and knowledge graph relations
+
+### How It Works
+
+```
+Query → [Neural Embedding] + [Entity Extraction] + [Keyword Analysis]
+                ↓                    ↓                     ↓
+        Vector Similarity    Entity Matching      Keyword Overlap
+                ↓                    ↓                     ↓
+                └──────────→ Hybrid Score ←───────────────┘
+                                  ↓
+                          Ranked Results with Explanations
+```
+
+### Entity Types Detected
+
+| Type | Examples |
+|------|----------|
+| **Dates** | `2024-01-15`, `January 15th, 2024`, `01/15/24` |
+| **Times** | `3:30 PM`, `15:30`, `3:30:00` |
+| **Money** | `$1,234.56`, `€500`, `£99.99` |
+| **Percentages** | `15%`, `3.5%` |
+| **Emails** | `user@example.com` |
+| **Phones** | `(555) 123-4567`, `+1-555-123-4567` |
+| **URLs** | `https://example.com/page` |
+| **Numbers** | `1,234,567`, `3.14159` |
+| **Durations** | `5 minutes`, `3 hours`, `2 weeks` |
+
+### Knowledge Graph
+
+When documents are added, Neural Nexus automatically:
+1. **Extracts entities** from each chunk
+2. **Identifies keywords** using TF-IDF-like scoring
+3. **Builds relations** between chunks sharing entities or topics
+4. **Indexes everything** for fast lookup
+
+### Hybrid Search Weights
+
+The search combines multiple signals with configurable weights:
+
+| Signal | Default Weight | Description |
+|--------|---------------|-------------|
+| **Semantic** | 45% | Embedding cosine similarity |
+| **Entity** | 30% | Matching dates, amounts, emails, etc. |
+| **Keyword** | 15% | Shared keyword overlap |
+| **Graph** | 10% | Connected nodes in knowledge graph |
+
+### Query Decomposition
+
+Complex queries are automatically decomposed:
+
+| Query Type | Example | Handling |
+|------------|---------|----------|
+| **Comparison** | "Compare January to February expenses" | Split into sub-queries |
+| **Temporal** | "Find receipts before March 2024" | Extract date constraints |
+| **Aggregation** | "Total amount of all invoices" | Search + aggregate |
+
+### Reasoning Chains
+
+Enable `show_reasoning: true` to see step-by-step explanations:
+
+```
+1. 🔍 PARSE: Extract entities (date: "January", money: "$500")
+2. 📚 SEARCH: Found 5 documents using hybrid search
+3. 🔬 FILTER: Applied entity constraints
+4. 💡 INFER: Connected via knowledge graph relations
+```
+
+### Using Neurosymbolic Search
+
+The AI automatically uses neurosymbolic search when you ask about your documents:
+
+```
+"Find my expenses from January"
+"Show receipts with amounts over $100"
+"Compare the two project proposals"
+"What invoices mention Amazon?"
+```
+
+### Viewing Entity Analysis
+
+In the Knowledge Base modal:
+1. Click **"Show analysis"** on any entry
+2. View extracted **entities** (color-coded by type)
+3. See detected **keywords**
 
 ## 🔧 Tool Calling (Function Calling)
 
@@ -277,7 +371,7 @@ Neural Nexus supports Ollama's tool calling feature, allowing the AI to use tool
 | `random_number` | Generate random numbers | "Give me a random number between 1 and 100" |
 | `web_search` | Search using DuckDuckGo Instant Answers | "Define machine learning" |
 | `tavily_search` | AI-powered web search with answers | "Search for Lexus LX 2025 specs" |
-| `rag_search` | Semantic search through Knowledge Base | "Find info about authentication in my docs" |
+| `rag_search` | Neurosymbolic search through Knowledge Base | "Find info about authentication in my docs" |
 | `fetch_url` | Fetch content from a specific URL | "Fetch the content from https://example.com" |
 | `encode_text` | Base64/URL encoding/decoding | "Encode this text to base64" |
 | `generate_uuid` | Generate UUIDs | "Generate a UUID for me" |
@@ -292,14 +386,21 @@ For high-quality, up-to-date web search results:
 3. Enter your Tavily API key
 4. Ask questions about current events, product specs, news, etc.
 
-### RAG Search (Semantic Document Search)
+### RAG Search (Neurosymbolic Document Search)
 
-Search your Knowledge Base using AI embeddings:
+Search your Knowledge Base using hybrid AI:
 
 1. Add documents to Knowledge Base (upload files, fetch URLs, or paste text)
 2. Configure embedding model in Settings (default: `mxbai-embed-large:latest`)
 3. Ask the AI to search your documents
-4. Returns semantically similar content, even without exact keyword matches
+4. Returns results ranked by semantic similarity + entity matching + keyword overlap
+
+**Features:**
+- **Hybrid scoring** - Combines neural embeddings with symbolic entity/keyword matching
+- **Entity extraction** - Automatically detects dates, amounts, emails, phones, URLs
+- **Knowledge graph** - Builds relations between documents sharing entities
+- **Query decomposition** - Handles complex queries like comparisons
+- **Explainable results** - Shows why each result was returned
 
 **Requirements:**
 - An Ollama embedding model: `ollama pull mxbai-embed-large` or `ollama pull bge-m3`
