@@ -897,19 +897,42 @@ export default function App() {
           try {
             const result = await executeChat(chatMessages, tools, abortControllerRef.current!.signal);
             
-            // Check if model wants to use tools
-            if (result.tool_calls && result.tool_calls.length > 0) {
+            // Check if model wants to use tools (either via tool_calls or JSON in content)
+            let toolCalls = result.tool_calls || [];
+            
+            // Some models output tool calls as JSON in content instead of using tool_calls
+            if (toolCalls.length === 0 && result.content) {
+              const jsonMatch = result.content.match(/\{\s*"name"\s*:\s*"(\w+)"\s*,\s*"arguments"\s*:\s*(\{[^}]*\})\s*\}/s);
+              if (jsonMatch) {
+                try {
+                  const toolName = jsonMatch[1];
+                  const toolArgs = JSON.parse(jsonMatch[2]);
+                  // Verify this is a known tool
+                  if (tools.some(t => t.function.name === toolName)) {
+                    toolCalls = [{
+                      type: 'function' as const,
+                      function: { name: toolName, arguments: toolArgs }
+                    }];
+                    console.log(`Parsed JSON tool call from content: ${toolName}`);
+                  }
+                } catch (parseErr) {
+                  console.warn('Failed to parse JSON tool call from content:', parseErr);
+                }
+              }
+            }
+            
+            if (toolCalls.length > 0) {
               setExecutingTools(true);
               
               // Add assistant message with tool calls to chat history
               chatMessages.push({
                 role: 'assistant',
                 content: result.content || '',
-                tool_calls: result.tool_calls
+                tool_calls: toolCalls
               });
               
               // Execute all tool calls
-              const toolResults = await toolRegistry.executeToolCalls(result.tool_calls);
+              const toolResults = await toolRegistry.executeToolCalls(toolCalls);
               
               // Add tool results to chat history
               for (const toolResult of toolResults) {
