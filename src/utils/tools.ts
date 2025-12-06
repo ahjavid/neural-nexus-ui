@@ -204,8 +204,8 @@ const generateUuid: ToolHandler = () => {
 };
 
 /**
- * Web search using DuckDuckGo
- * Uses CORS proxy for cross-origin requests
+ * Web search using DuckDuckGo Instant Answer API
+ * No CORS proxy needed - DuckDuckGo API has proper CORS headers
  */
 const webSearch: ToolHandler = async (args) => {
   const query = args.query as string;
@@ -216,13 +216,12 @@ const webSearch: ToolHandler = async (args) => {
   
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
     
-    // Use DuckDuckGo HTML search via CORS proxy
-    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(searchUrl)}`;
+    // Use DuckDuckGo Instant Answer API (no CORS issues)
+    const apiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1`;
     
-    const response = await fetch(proxyUrl, {
+    const response = await fetch(apiUrl, {
       signal: controller.signal,
     });
     
@@ -232,66 +231,71 @@ const webSearch: ToolHandler = async (args) => {
       return `Error: Search failed with HTTP ${response.status}`;
     }
     
-    const html = await response.text();
+    const data = await response.json();
     
-    // Parse search results from HTML
-    const results: Array<{ title: string; url: string; snippet: string }> = [];
+    // Build results from API response
+    const results: string[] = [];
     
-    // Patterns to extract results from DuckDuckGo HTML
-    const titleRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-    const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-    
-    // Extract titles and URLs
-    const titles: Array<{ url: string; title: string }> = [];
-    let match;
-    while ((match = titleRegex.exec(html)) !== null && titles.length < 8) {
-      const url = match[1];
-      const title = match[2].replace(/<[^>]*>/g, '').trim();
-      if (url && title && !url.includes('duckduckgo.com')) {
-        // Decode the DDG redirect URL
-        const actualUrl = url.includes('uddg=') 
-          ? decodeURIComponent(url.split('uddg=')[1]?.split('&')[0] || url)
-          : url;
-        titles.push({ url: actualUrl, title });
+    // Add abstract (main answer) if available
+    if (data.Abstract) {
+      results.push(`**Summary:** ${data.Abstract}`);
+      if (data.AbstractSource && data.AbstractURL) {
+        results.push(`Source: ${data.AbstractSource} - ${data.AbstractURL}`);
       }
     }
     
-    // Extract snippets
-    const snippets: string[] = [];
-    while ((match = snippetRegex.exec(html)) !== null && snippets.length < 8) {
-      const snippet = match[1].replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim();
-      if (snippet) {
-        snippets.push(snippet);
+    // Add definition if available
+    if (data.Definition) {
+      results.push(`**Definition:** ${data.Definition}`);
+    }
+    
+    // Add answer if available (for calculations, conversions, etc.)
+    if (data.Answer) {
+      results.push(`**Answer:** ${data.Answer}`);
+    }
+    
+    // Add related topics
+    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+      results.push('\n**Related Information:**');
+      const topics = data.RelatedTopics.slice(0, 5);
+      for (const topic of topics) {
+        if (topic.Text) {
+          results.push(`- ${topic.Text}`);
+          if (topic.FirstURL) {
+            results.push(`  URL: ${topic.FirstURL}`);
+          }
+        } else if (topic.Topics) {
+          // Nested topics (categories)
+          for (const subtopic of topic.Topics.slice(0, 2)) {
+            if (subtopic.Text) {
+              results.push(`- ${subtopic.Text}`);
+            }
+          }
+        }
       }
     }
     
-    // Combine results
-    for (let i = 0; i < Math.min(titles.length, snippets.length, 5); i++) {
-      results.push({
-        title: titles[i].title,
-        url: titles[i].url,
-        snippet: snippets[i]
-      });
+    // Add infobox data if available
+    if (data.Infobox && data.Infobox.content) {
+      results.push('\n**Details:**');
+      for (const item of data.Infobox.content.slice(0, 5)) {
+        if (item.label && item.value) {
+          results.push(`- ${item.label}: ${item.value}`);
+        }
+      }
     }
     
     if (results.length === 0) {
-      return `No search results found for "${query}". Try different search terms.`;
+      // Fallback message with helpful suggestions
+      return `No instant answer found for "${query}". The DuckDuckGo Instant Answer API works best for:\n- Definitions (e.g., "define algorithm")\n- Facts about people, places, things\n- Calculations and conversions\n- Programming/tech questions\n\nTry rephrasing your query or being more specific.`;
     }
     
-    // Format results
-    let output = `Web search results for "${query}":\n\n`;
-    results.forEach((r, i) => {
-      output += `${i + 1}. **${r.title}**\n`;
-      output += `   URL: ${r.url}\n`;
-      output += `   ${r.snippet}\n\n`;
-    });
-    
-    return output;
+    return `Search results for "${query}":\n\n${results.join('\n')}`;
   } catch (e) {
     if ((e as Error).name === 'AbortError') {
-      return 'Error: Search timed out after 15 seconds';
+      return 'Error: Search timed out';
     }
-    return `Error searching web: ${(e as Error).message}`;
+    return `Error searching: ${(e as Error).message}`;
   }
 };
 
