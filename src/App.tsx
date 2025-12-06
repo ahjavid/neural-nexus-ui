@@ -871,9 +871,16 @@ export default function App() {
       const shouldTryTools = toolsEnabled && (modelSupportsTools || !capabilitiesChecked);
       const tools = shouldTryTools ? toolRegistry.getToolDefinitions() : [];
       
+      // Build enhanced system prompt with knowledge base context
+      let enhancedSystemPrompt = systemPrompt;
+      if (knowledgeBase.length > 0 && shouldTryTools) {
+        const kbContext = `\n\n**IMPORTANT - Knowledge Base Available:** The user has uploaded ${knowledgeBase.length} document(s) to their personal knowledge base: ${knowledgeBase.map(k => `"${k.title}"`).join(', ')}. When the user asks about their documents, files, data, transactions, statements, or any personal/uploaded content, you MUST use the rag_search tool FIRST to search their knowledge base. Do NOT make up information - always search first.`;
+        enhancedSystemPrompt += kbContext;
+      }
+      
       // Build chat messages for API
       let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }> = [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: enhancedSystemPrompt },
         ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
       ];
 
