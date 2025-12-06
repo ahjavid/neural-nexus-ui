@@ -28,6 +28,8 @@ export type EntityType =
   | 'phone' 
   | 'url'
   | 'number'
+  | 'card'
+  | 'account'
   | 'person'
   | 'organization'
   | 'location'
@@ -173,6 +175,25 @@ const ENTITY_PATTERNS: Record<string, { pattern: RegExp; type: EntityType; norma
     pattern: /\b(\d+(?:st|nd|rd|th))\b/gi,
     type: 'ordinal',
     normalize: (m) => parseInt(m.replace(/\D/g, ''))
+  },
+  
+  // Card numbers (last 4 digits commonly shown)
+  cardLast4: {
+    pattern: /\b(?:card|acct|account|ending(?:\s+in)?)\s*[#:]?\s*(\d{4})\b/gi,
+    type: 'card',
+    normalize: (m) => m
+  },
+  // Standalone 4-digit identifiers in parentheses like (CARD 8455) or just 4 digits after card mention
+  cardNumber4: {
+    pattern: /\(?\s*(?:CARD|Card|card)\s+(\d{4})\s*\)?/g,
+    type: 'card',
+    normalize: (m) => m
+  },
+  // Account numbers (partial, commonly last 4-6 digits)
+  accountPartial: {
+    pattern: /\b(?:x{2,}|[*]{2,})(\d{4,6})\b/gi,
+    type: 'account',
+    normalize: (m) => m
   }
 };
 
@@ -614,6 +635,8 @@ const DEFAULT_SEARCH_OPTIONS: Required<HybridSearchOptions> = {
     phone: 1.8,
     url: 1.3,
     number: 1.0,
+    card: 2.0,
+    account: 2.0,
     person: 1.5,
     organization: 1.5,
     location: 1.3,
