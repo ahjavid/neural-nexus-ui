@@ -829,12 +829,13 @@ export default function App() {
         ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
       ];
 
-      // If tools are enabled, use non-streaming to check for tool calls
+      // If tools are enabled, try to use them (with fallback for unsupported models)
       if (tools.length > 0) {
         let maxIterations = 5; // Prevent infinite loops
         let iteration = 0;
+        let toolsSupported = true;
         
-        while (iteration < maxIterations) {
+        while (iteration < maxIterations && toolsSupported) {
           iteration++;
           
           // Show indicator when checking for tool calls (iteration > 1 means we're processing tool results)
@@ -842,56 +843,80 @@ export default function App() {
             setExecutingTools(true);
           }
           
-          const result = await executeChat(chatMessages, tools, abortControllerRef.current.signal);
-          
-          // Check if model wants to use tools
-          if (result.tool_calls && result.tool_calls.length > 0) {
-            setExecutingTools(true);
+          try {
+            const result = await executeChat(chatMessages, tools, abortControllerRef.current!.signal);
             
-            // Add assistant message with tool calls to chat history
-            chatMessages.push({
-              role: 'assistant',
-              content: result.content || '',
-              tool_calls: result.tool_calls
-            });
-            
-            // Execute all tool calls
-            const toolResults = await toolRegistry.executeToolCalls(result.tool_calls);
-            
-            // Add tool results to chat history
-            for (const toolResult of toolResults) {
+            // Check if model wants to use tools
+            if (result.tool_calls && result.tool_calls.length > 0) {
+              setExecutingTools(true);
+              
+              // Add assistant message with tool calls to chat history
               chatMessages.push({
-                role: 'tool',
-                tool_name: toolResult.name,
-                content: toolResult.result
+                role: 'assistant',
+                content: result.content || '',
+                tool_calls: result.tool_calls
               });
+              
+              // Execute all tool calls
+              const toolResults = await toolRegistry.executeToolCalls(result.tool_calls);
+              
+              // Add tool results to chat history
+              for (const toolResult of toolResults) {
+                chatMessages.push({
+                  role: 'tool',
+                  tool_name: toolResult.name,
+                  content: toolResult.result
+                });
+              }
+              
+              // Keep executingTools true - we'll loop and continue
+              // Continue loop to get next response
+            } else {
+              // No tool calls, we have the final response
+              setExecutingTools(false);
+              
+              // Update with the final content
+              const elapsed = (Date.now() - startTime) / 1000;
+              const finalMsg: Message = {
+                role: 'assistant',
+                content: result.content,
+                timing: elapsed.toFixed(1),
+                tokenSpeed: '—' // Non-streaming doesn't give token count
+              };
+              
+              updateCurrentSession({
+                messages: [...updatedMessages, finalMsg]
+              });
+              
+              setStreaming(false);
+              abortControllerRef.current = null;
+              lastAssistantResponseRef.current = result.content;
+              if (isVoice) speakMessage(result.content);
+              break;
             }
-            
-            // Keep executingTools true - we'll loop and continue
-            // Continue loop to get next response
-          } else {
-            // No tool calls, we have the final response
-            setExecutingTools(false);
-            
-            // Update with the final content
-            const elapsed = (Date.now() - startTime) / 1000;
-            const finalMsg: Message = {
-              role: 'assistant',
-              content: result.content,
-              timing: elapsed.toFixed(1),
-              tokenSpeed: '—' // Non-streaming doesn't give token count
-            };
-            
-            updateCurrentSession({
-              messages: [...updatedMessages, finalMsg]
-            });
-            
-            setStreaming(false);
-            abortControllerRef.current = null;
-            lastAssistantResponseRef.current = result.content;
-            if (isVoice) speakMessage(result.content);
-            break;
+          } catch (toolErr) {
+            // Check if model doesn't support tools (400 Bad Request)
+            const errMsg = (toolErr as Error).message;
+            if (errMsg.includes('400') || errMsg.toLowerCase().includes('bad request')) {
+              console.warn('Model does not support tool calling, falling back to streaming mode');
+              toolsSupported = false;
+              setExecutingTools(false);
+              // Fall through to streaming mode below
+            } else {
+              // Re-throw other errors
+              throw toolErr;
+            }
           }
+        }
+        
+        // If tools weren't supported, fall back to streaming
+        if (!toolsSupported) {
+          // Reset chat messages (remove any tool-related messages)
+          chatMessages = [
+            { role: 'system', content: systemPrompt },
+            ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
+          ];
+          await streamChat(chatMessages, startTime, updatedMessages, isVoice);
         }
       } else {
         // No tools, use streaming as before
