@@ -121,6 +121,12 @@ const ENTITY_PATTERNS: Record<string, { pattern: RegExp; type: EntityType; norma
     type: 'money',
     normalize: (m) => parseFloat(m.replace(/[^\d.]/g, ''))
   },
+  // Decimal amounts that look like money (e.g., 696.00, 180.76) - common in statements
+  moneyDecimal: {
+    pattern: /\b(\d{1,3}(?:,\d{3})*\.\d{2})\b/g,
+    type: 'money',
+    normalize: (m) => parseFloat(m.replace(/,/g, ''))
+  },
   
   // Percentage
   percentage: {
@@ -634,6 +640,19 @@ export const hybridSearch = async (
   const queryExtraction = extractEntities(query);
   const queryKeywords = new Set(queryExtraction.keywords);
   
+  // Detect comparison operators for money queries
+  const lowerQuery = query.toLowerCase();
+  const overMatch = lowerQuery.match(/(?:over|above|greater than|more than|>)\s*\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+  const underMatch = lowerQuery.match(/(?:under|below|less than|<)\s*\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+  
+  const moneyGreaterThan = overMatch ? parseFloat(overMatch[1].replace(/,/g, '')) : null;
+  const moneyLessThan = underMatch ? parseFloat(underMatch[1].replace(/,/g, '')) : null;
+  
+  console.log('🔢 Money comparison thresholds:', { 
+    greaterThan: moneyGreaterThan, 
+    lessThan: moneyLessThan 
+  });
+  
   // Get query embedding
   const queryEmbedding = await getQueryEmbedding(query);
   
@@ -655,12 +674,47 @@ export const hybridSearch = async (
     
     // 2. Entity matching (symbolic)
     let entityScore = 0;
+    
+    // Check for money entities matching comparison operators (even if query has no explicit money entity)
+    if (moneyGreaterThan !== null || moneyLessThan !== null) {
+      const moneyEntities = node.entities.filter(e => e.type === 'money' && typeof e.normalized === 'number');
+      
+      for (const mEntity of moneyEntities) {
+        const amount = mEntity.normalized as number;
+        
+        if (moneyGreaterThan !== null && amount > moneyGreaterThan) {
+          const boost = (opts.entityBoost['money'] || 1.0) * 2.5; // Strong boost for comparison match
+          entityScore += boost;
+          explanation.entityMatches.push({
+            type: 'money',
+            value: `${mEntity.value} (>${moneyGreaterThan})`,
+            boost
+          });
+        } else if (moneyLessThan !== null && amount < moneyLessThan) {
+          const boost = (opts.entityBoost['money'] || 1.0) * 2.5;
+          entityScore += boost;
+          explanation.entityMatches.push({
+            type: 'money',
+            value: `${mEntity.value} (<${moneyLessThan})`,
+            boost
+          });
+        }
+      }
+    }
+    
+    // Standard entity matching for other types
     for (const qEntity of queryExtraction.entities) {
       for (const nEntity of node.entities) {
         if (qEntity.type === nEntity.type) {
+          // Skip money if already handled by comparison above
+          if (qEntity.type === 'money' && (moneyGreaterThan !== null || moneyLessThan !== null)) {
+            continue;
+          }
+          
           const qVal = (qEntity.normalized || qEntity.value).toString().toLowerCase();
           const nVal = (nEntity.normalized || nEntity.value).toString().toLowerCase();
           
+          // Default exact/partial match
           if (qVal === nVal || nVal.includes(qVal) || qVal.includes(nVal)) {
             const boost = opts.entityBoost[qEntity.type] || 1.0;
             entityScore += boost;
@@ -673,9 +727,12 @@ export const hybridSearch = async (
         }
       }
     }
-    // Normalize entity score
-    if (queryExtraction.entities.length > 0) {
-      entityScore = Math.min(1, entityScore / queryExtraction.entities.length);
+    
+    // Normalize entity score - use max of query entities or 1 for comparison queries
+    const normalizer = Math.max(queryExtraction.entities.length, 
+      (moneyGreaterThan !== null || moneyLessThan !== null) ? 1 : 0);
+    if (normalizer > 0) {
+      entityScore = Math.min(1, entityScore / normalizer);
     }
     
     // 3. Keyword matching (symbolic)

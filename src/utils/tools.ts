@@ -626,6 +626,13 @@ const ragSearch: ToolHandler = async (args) => {
     // Extract entities from query for explanation
     const queryEntities = extractEntities(query);
     
+    console.log('[Neurosymbolic RAG] Query analysis:', {
+      entities: queryEntities.entities.length,
+      keywords: queryEntities.keywords.length,
+      entityTypes: queryEntities.entities.map(e => `${e.type}:${e.value}`),
+      topKeywords: queryEntities.keywords.slice(0, 5)
+    });
+    
     // Check for query decomposition (comparison queries, etc.)
     const subQueries = decomposeQuery(query);
     const isComplexQuery = subQueries.length > 1;
@@ -637,6 +644,7 @@ const ragSearch: ToolHandler = async (args) => {
       console.log('[Neurosymbolic RAG] Using hybrid search with', 
         queryEntities.entities.length, 'entities and',
         queryEntities.keywords.length, 'keywords');
+      console.log('[Neurosymbolic RAG] Search weights: semantic=45%, entity=30%, keyword=15%, graph=10%');
       
       // Get query embedding function
       const getQueryEmbedding = async (text: string) => 
