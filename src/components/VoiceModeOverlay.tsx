@@ -29,7 +29,7 @@ export const VoiceModeOverlay: React.FC<VoiceModeOverlayProps> = ({
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center animate-in fade-in duration-500">
       <div className="absolute top-6 right-6">
-        <button onClick={onClose} className="p-3 bg-gray-800 rounded-full hover:bg-gray-700 text-white transition-all">
+        <button onClick={onClose} className="p-3 bg-gray-800 rounded-full hover:bg-gray-700 text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
           <X size={24} />
         </button>
       </div>
@@ -69,7 +69,7 @@ export const VoiceModeOverlay: React.FC<VoiceModeOverlayProps> = ({
         {/* Manual mic control */}
         <button 
           onClick={isListening ? onStopListening : onStartListening}
-          className={`p-6 rounded-full transition-all ${
+          className={`p-6 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
             isListening ? 'bg-purple-500 hover:bg-purple-600 scale-110' : 'bg-gray-800 hover:bg-gray-700'
           }`}
         >
@@ -84,7 +84,7 @@ export const VoiceModeOverlay: React.FC<VoiceModeOverlayProps> = ({
       <div className="pb-12">
         <button 
           onClick={onEndCall} 
-          className="px-8 py-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-full text-red-400 font-medium flex items-center gap-3 transition-all hover:scale-105 active:scale-95"
+          className="px-8 py-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-full text-red-400 font-medium flex items-center gap-3 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500/50"
         >
           <PhoneOff size={20} /> End Call
         </button>

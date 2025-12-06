@@ -148,7 +148,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
             <Database size={18} /> Knowledge Base
             <span className="text-xs text-gray-500 font-normal">({knowledgeBase.length} entries)</span>
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white">
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
             <X size={20} />
           </button>
         </div>

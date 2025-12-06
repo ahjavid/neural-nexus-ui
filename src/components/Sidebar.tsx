@@ -2,11 +2,11 @@ import React from 'react';
 import {
   Cpu,
   ChevronRight,
+  ChevronDown,
   Plus,
   Search,
   MessageSquare,
   Trash2,
-  Box,
   Database,
   Keyboard,
   Settings,
@@ -161,12 +161,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <select 
               value={selectedModel} 
               onChange={(e) => onModelChange(e.target.value)} 
-              className="w-full bg-[#18181b] border border-gray-700 text-gray-200 text-sm rounded-lg p-2.5 appearance-none focus:outline-none focus:border-indigo-500"
+              className="w-full bg-[#18181b] border border-gray-700 text-gray-200 text-sm rounded-lg p-2.5 pr-8 appearance-none focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all cursor-pointer"
             >
               <option value="" disabled>Select a model...</option>
               {models.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
             </select>
-            <Box size={14} className="absolute right-3 top-3 text-gray-500 pointer-events-none" />
+            <ChevronDown size={14} className="absolute right-3 top-3 text-gray-500 pointer-events-none" />
           </div>
         </div>
 
@@ -176,9 +176,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Button variant="icon" onClick={onOpenHelp} title="Shortcuts"><Keyboard size={16} /></Button>
             <Button variant="icon" onClick={onOpenSettings} title="Settings"><Settings size={16} /></Button>
           </div>
-          <div className={`w-2 h-2 rounded-full ${
-            connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'
-          }`} />
+          <div 
+            className={`w-2.5 h-2.5 rounded-full cursor-help transition-all ${
+              connectionStatus === 'connected' 
+                ? 'bg-green-500 shadow-sm shadow-green-500/50' 
+                : connectionStatus === 'checking'
+                ? 'bg-amber-500 animate-pulse shadow-sm shadow-amber-500/50'
+                : 'bg-red-500 shadow-sm shadow-red-500/50'
+            }`}
+            title={connectionStatus === 'connected' 
+              ? 'Connected to Ollama' 
+              : connectionStatus === 'checking' 
+              ? 'Connecting...' 
+              : 'Disconnected - Click Settings to configure'
+            }
+          />
         </div>
       </div>
     </div>

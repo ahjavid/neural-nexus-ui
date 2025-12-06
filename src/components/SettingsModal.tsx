@@ -73,7 +73,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <h3 className="font-bold text-gray-200 flex items-center gap-2">
             <Settings size={18} /> Engine Configuration
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white">
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
             <X size={20} />
           </button>
         </div>
