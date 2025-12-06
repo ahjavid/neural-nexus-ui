@@ -369,6 +369,8 @@ const tavilySearch: ToolHandler = async (args) => {
   }
   
   const config = getToolConfig();
+  console.log('[Tavily] API Key configured:', !!config.tavilyApiKey, 'Query:', query);
+  
   if (!config.tavilyApiKey) {
     return 'Error: Tavily API key not configured. Please add your API key in Settings → Tools section. Get a free key at https://tavily.com';
   }
@@ -377,26 +379,33 @@ const tavilySearch: ToolHandler = async (args) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
     
+    const requestBody = {
+      api_key: config.tavilyApiKey,
+      query: query,
+      search_depth: searchDepth,
+      max_results: maxResults,
+      include_answer: true,
+      include_raw_content: false
+    };
+    
+    console.log('[Tavily] Sending request to api.tavily.com/search');
+    
     const response = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        api_key: config.tavilyApiKey,
-        query: query,
-        search_depth: searchDepth,
-        max_results: maxResults,
-        include_answer: true,
-        include_raw_content: false
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal
     });
     
     clearTimeout(timeoutId);
     
+    console.log('[Tavily] Response status:', response.status);
+    
     if (!response.ok) {
       const errorData = await response.text();
+      console.error('[Tavily] Error response:', errorData);
       if (response.status === 401) {
         return 'Error: Invalid Tavily API key. Please check your key in Settings.';
       }
@@ -404,6 +413,7 @@ const tavilySearch: ToolHandler = async (args) => {
     }
     
     const data = await response.json();
+    console.log('[Tavily] Response data:', data);
     const results: string[] = [];
     
     // Add AI-generated answer if available
@@ -800,7 +810,7 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     type: 'function',
     function: {
       name: 'tavily_search',
-      description: 'Search the web using Tavily AI-powered search. Provides high-quality, AI-optimized search results with direct answers. Best for research, current events, and detailed information. Requires API key.',
+      description: 'Search the web for current, up-to-date information using Tavily AI search. ALWAYS use this tool when asked about: product specs, current prices, recent news, 2024/2025 information, or anything that requires real-time data. Returns AI-optimized search results with direct answers.',
       parameters: {
         type: 'object',
         required: ['query'],
