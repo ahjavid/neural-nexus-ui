@@ -250,7 +250,8 @@ Neural Nexus supports Ollama's tool calling feature, allowing the AI to use tool
 | `get_current_time` | Get current date/time with timezone support | "What time is it in Tokyo?" |
 | `calculate` | Mathematical calculations | "What is 15% of 250?" |
 | `random_number` | Generate random numbers | "Give me a random number between 1 and 100" |
-| `fetch_url` | Fetch content from URLs | "Summarize the content at this URL" |
+| `web_search` | Search the web using DuckDuckGo | "Search for Lexus RX 350 2025 specs" |
+| `fetch_url` | Fetch content from a specific URL | "Fetch the content from https://example.com" |
 | `encode_text` | Base64/URL encoding/decoding | "Encode this text to base64" |
 | `generate_uuid` | Generate UUIDs | "Generate a UUID for me" |
 | `text_stats` | Text analysis (word count, etc.) | "How many words are in this paragraph?" |

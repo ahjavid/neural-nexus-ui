@@ -202,6 +202,101 @@ const generateUuid: ToolHandler = () => {
 };
 
 /**
+ * Web search using DuckDuckGo
+ */
+const webSearch: ToolHandler = async (args) => {
+  const query = args.query as string;
+  
+  if (!query) {
+    return 'Error: No search query provided';
+  }
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    
+    // Use DuckDuckGo HTML search (more reliable than API)
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    
+    const response = await fetch(searchUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      }
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      return `Error: Search failed with HTTP ${response.status}`;
+    }
+    
+    const html = await response.text();
+    
+    // Parse search results from HTML
+    const results: Array<{ title: string; url: string; snippet: string }> = [];
+    
+    // Patterns to extract results from DuckDuckGo HTML
+    const titleRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+    
+    // Extract titles and URLs
+    const titles: Array<{ url: string; title: string }> = [];
+    let match;
+    while ((match = titleRegex.exec(html)) !== null && titles.length < 8) {
+      const url = match[1];
+      const title = match[2].replace(/<[^>]*>/g, '').trim();
+      if (url && title && !url.includes('duckduckgo.com')) {
+        // Decode the DDG redirect URL
+        const actualUrl = url.includes('uddg=') 
+          ? decodeURIComponent(url.split('uddg=')[1]?.split('&')[0] || url)
+          : url;
+        titles.push({ url: actualUrl, title });
+      }
+    }
+    
+    // Extract snippets
+    const snippets: string[] = [];
+    while ((match = snippetRegex.exec(html)) !== null && snippets.length < 8) {
+      const snippet = match[1].replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim();
+      if (snippet) {
+        snippets.push(snippet);
+      }
+    }
+    
+    // Combine results
+    for (let i = 0; i < Math.min(titles.length, snippets.length, 5); i++) {
+      results.push({
+        title: titles[i].title,
+        url: titles[i].url,
+        snippet: snippets[i]
+      });
+    }
+    
+    if (results.length === 0) {
+      return `No search results found for "${query}". Try different search terms.`;
+    }
+    
+    // Format results
+    let output = `Web search results for "${query}":\n\n`;
+    results.forEach((r, i) => {
+      output += `${i + 1}. **${r.title}**\n`;
+      output += `   URL: ${r.url}\n`;
+      output += `   ${r.snippet}\n\n`;
+    });
+    
+    return output;
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') {
+      return 'Error: Search timed out after 15 seconds';
+    }
+    return `Error searching web: ${(e as Error).message}`;
+  }
+};
+
+/**
  * Get text statistics (word count, character count, etc.)
  */
 const textStats: ToolHandler = (args) => {
@@ -356,6 +451,24 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     }
   },
   
+  web_search: {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: 'Search the web using DuckDuckGo. Use this to find current information, news, product details, or any topic the user asks about. Returns top search results with titles, URLs, and snippets.',
+      parameters: {
+        type: 'object',
+        required: ['query'],
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query. Be specific and include relevant keywords for better results.'
+          }
+        }
+      }
+    }
+  },
+  
   text_stats: {
     type: 'function',
     function: {
@@ -386,6 +499,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   fetch_url: fetchUrl,
   encode_text: encodeText,
   generate_uuid: generateUuid,
+  web_search: webSearch,
   text_stats: textStats
 };
 
