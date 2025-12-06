@@ -168,7 +168,11 @@ export const extractTextFile = async (file: File): Promise<DocumentResult> => {
 // Extract text from PDF
 export const extractPdfText = async (file: File): Promise<DocumentResult> => {
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ 
+    data: arrayBuffer,
+    standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@' + pdfjsLib.version + '/standard_fonts/',
+    useSystemFonts: true
+  }).promise;
   let fullText = '';
   
   for (let i = 1; i <= pdf.numPages; i++) {

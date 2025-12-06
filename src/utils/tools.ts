@@ -235,19 +235,81 @@ const generateUuid: ToolHandler = () => {
 };
 
 /**
- * Web search using DuckDuckGo Instant Answer API
- * No CORS proxy needed - DuckDuckGo API has proper CORS headers
+ * Web search - uses Tavily if API key is configured, otherwise DuckDuckGo
  */
 const webSearch: ToolHandler = async (args) => {
   const query = args.query as string;
+  const searchDepth = (args.search_depth as string) || 'basic';
+  const maxResults = (args.max_results as number) || 5;
   
   if (!query) {
     return 'Error: No search query provided';
   }
   
+  const config = getToolConfig();
+  
+  // Use Tavily if API key is configured (better results)
+  if (config.tavilyApiKey) {
+    console.log('[Web Search] Using Tavily API');
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const response = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: config.tavilyApiKey,
+          query: query,
+          search_depth: searchDepth,
+          max_results: maxResults,
+          include_answer: true,
+          include_raw_content: false
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          return 'Error: Invalid Tavily API key. Please check your key in Settings.';
+        }
+        // Fall back to DuckDuckGo on error
+        console.log('[Web Search] Tavily failed, falling back to DuckDuckGo');
+      } else {
+        const data = await response.json();
+        const results: string[] = [];
+        
+        if (data.answer) {
+          results.push(`**Answer:** ${data.answer}\n`);
+        }
+        
+        if (data.results && data.results.length > 0) {
+          results.push('**Sources:**');
+          for (const result of data.results) {
+            results.push(`\n**${result.title}**`);
+            results.push(`URL: ${result.url}`);
+            if (result.content) {
+              results.push(`${result.content.slice(0, 300)}${result.content.length > 300 ? '...' : ''}`);
+            }
+          }
+        }
+        
+        if (results.length > 0) {
+          return `Web search results for "${query}":\n\n${results.join('\n')}`;
+        }
+      }
+    } catch (e) {
+      console.log('[Web Search] Tavily error, falling back to DuckDuckGo:', (e as Error).message);
+    }
+  }
+  
+  // Fallback to DuckDuckGo Instant Answer API
+  console.log('[Web Search] Using DuckDuckGo API');
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
     // Use DuckDuckGo Instant Answer API (no CORS issues)
     const apiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1`;
@@ -355,99 +417,6 @@ const textStats: ToolHandler = (args) => {
 - Sentences: ${sentences.toLocaleString()}
 - Paragraphs: ${paragraphs.toLocaleString()}
 - Average word length: ${words > 0 ? (charsNoSpaces / words).toFixed(1) : 0} chars`;
-};
-
-/**
- * Tavily web search - high quality AI-optimized search
- */
-const tavilySearch: ToolHandler = async (args) => {
-  const query = args.query as string;
-  const searchDepth = (args.search_depth as string) || 'basic';
-  const maxResults = (args.max_results as number) || 5;
-  
-  if (!query) {
-    return 'Error: No search query provided';
-  }
-  
-  const config = getToolConfig();
-  console.log('[Tavily] API Key configured:', !!config.tavilyApiKey, 'Query:', query);
-  
-  if (!config.tavilyApiKey) {
-    return 'Error: Tavily API key not configured. Please add your API key in Settings → Tools section. Get a free key at https://tavily.com';
-  }
-  
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-    
-    const requestBody = {
-      api_key: config.tavilyApiKey,
-      query: query,
-      search_depth: searchDepth,
-      max_results: maxResults,
-      include_answer: true,
-      include_raw_content: false
-    };
-    
-    console.log('[Tavily] Sending request to api.tavily.com/search');
-    
-    const response = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    console.log('[Tavily] Response status:', response.status);
-    
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('[Tavily] Error response:', errorData);
-      if (response.status === 401) {
-        return 'Error: Invalid Tavily API key. Please check your key in Settings.';
-      }
-      return `Error: Tavily API returned HTTP ${response.status}: ${errorData}`;
-    }
-    
-    const data = await response.json();
-    console.log('[Tavily] Response data:', data);
-    const results: string[] = [];
-    
-    // Add AI-generated answer if available
-    if (data.answer) {
-      results.push(`**Answer:** ${data.answer}\n`);
-    }
-    
-    // Add search results
-    if (data.results && data.results.length > 0) {
-      results.push('**Sources:**');
-      for (const result of data.results) {
-        results.push(`\n**${result.title}**`);
-        results.push(`URL: ${result.url}`);
-        if (result.content) {
-          results.push(`${result.content.slice(0, 300)}${result.content.length > 300 ? '...' : ''}`);
-        }
-        if (result.score) {
-          results.push(`Relevance: ${(result.score * 100).toFixed(0)}%`);
-        }
-      }
-    }
-    
-    if (results.length === 0) {
-      return `No results found for "${query}".`;
-    }
-    
-    return `Tavily Search results for "${query}":\n\n${results.join('\n')}`;
-  } catch (e) {
-    if ((e as Error).name === 'AbortError') {
-      return 'Error: Search timed out';
-    }
-    return `Error searching Tavily: ${(e as Error).message}`;
-  }
 };
 
 // ============================================
@@ -796,7 +765,7 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     type: 'function',
     function: {
       name: 'web_search',
-      description: 'Search the web using DuckDuckGo. Use this to find current information, news, product details, or any topic the user asks about. Returns top search results with titles, URLs, and snippets.',
+      description: 'Search the PUBLIC WEB for current information, news, facts, product details, or any general knowledge topic. Uses Tavily AI search if API key is configured (better results), otherwise falls back to DuckDuckGo. DO NOT use this for searching the user\'s personal/uploaded documents - use rag_search instead.',
       parameters: {
         type: 'object',
         required: ['query'],
@@ -804,6 +773,15 @@ const toolDefinitions: Record<string, ToolDefinition> = {
           query: {
             type: 'string',
             description: 'The search query. Be specific and include relevant keywords for better results.'
+          },
+          search_depth: {
+            type: 'string',
+            description: 'Search depth (Tavily only): "basic" (faster) or "advanced" (more comprehensive). Defaults to "basic".',
+            enum: ['basic', 'advanced']
+          },
+          max_results: {
+            type: 'number',
+            description: 'Maximum number of results (Tavily only, 1-10). Defaults to 5.'
           }
         }
       }
@@ -828,45 +806,18 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     }
   },
   
-  tavily_search: {
-    type: 'function',
-    function: {
-      name: 'tavily_search',
-      description: 'Search the web for current, up-to-date information using Tavily AI search. ALWAYS use this tool when asked about: product specs, current prices, recent news, 2024/2025 information, or anything that requires real-time data. Returns AI-optimized search results with direct answers.',
-      parameters: {
-        type: 'object',
-        required: ['query'],
-        properties: {
-          query: {
-            type: 'string',
-            description: 'The search query. Be specific for better results.'
-          },
-          search_depth: {
-            type: 'string',
-            description: 'Search depth: "basic" (faster) or "advanced" (more comprehensive). Defaults to "basic".',
-            enum: ['basic', 'advanced']
-          },
-          max_results: {
-            type: 'number',
-            description: 'Maximum number of results to return (1-10). Defaults to 5.'
-          }
-        }
-      }
-    }
-  },
-  
   rag_search: {
     type: 'function',
     function: {
       name: 'rag_search',
-      description: 'Search through the knowledge base using semantic similarity (RAG). Uses AI embeddings to find relevant documents even if they don\'t contain the exact search terms. Best for searching local documents and notes.',
+      description: 'Search through the USER\'S PERSONAL knowledge base and uploaded documents using semantic similarity (RAG). ALWAYS use this tool FIRST when the user asks about: their documents, their files, their uploads, their notes, "my documents", personal data like bank statements, receipts, invoices, or any content they have added to the knowledge base. This searches LOCAL user data, not the web.',
       parameters: {
         type: 'object',
         required: ['query'],
         properties: {
           query: {
             type: 'string',
-            description: 'The search query. Describe what you\'re looking for.'
+            description: 'The search query. Describe what you\'re looking for in the user\'s documents.'
           },
           top_k: {
             type: 'number',
@@ -895,7 +846,6 @@ const toolHandlers: Record<string, ToolHandler> = {
   generate_uuid: generateUuid,
   web_search: webSearch,
   text_stats: textStats,
-  tavily_search: tavilySearch,
   rag_search: ragSearch
 };
 

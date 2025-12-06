@@ -192,7 +192,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="p-3 bg-[#09090b] rounded-lg border border-gray-800 space-y-2">
                     <div className="flex items-center gap-2">
                       <Key size={14} className="text-amber-400" />
-                      <span className="text-xs font-medium text-gray-300">Tavily API Key</span>
+                      <span className="text-xs font-medium text-gray-300">Tavily API Key (Enhanced Web Search)</span>
                     </div>
                     <div className="flex gap-2">
                       <input
@@ -214,7 +214,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     </div>
                     <p className="text-[10px] text-gray-600">
-                      Get a free API key at <a href="https://tavily.com" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">tavily.com</a>
+                      Optional: Adds AI-powered web search. Without it, uses DuckDuckGo. Get free key at <a href="https://tavily.com" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">tavily.com</a>
                     </p>
                   </div>
                   
