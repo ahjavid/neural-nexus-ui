@@ -1294,13 +1294,18 @@ export default function App() {
         {/* Chat Feed */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 animate-in fade-in zoom-in duration-300">
-              <div className="w-24 h-24 bg-gradient-to-br from-indigo-900/50 to-purple-900/50 rounded-full flex items-center justify-center mb-8 shadow-2xl border border-indigo-500/20 relative">
-                <div className="absolute inset-0 rounded-full border border-indigo-500/30 animate-[spin_10s_linear_infinite]"></div>
-                <Zap size={40} className="text-indigo-400" />
+            <div className="min-h-full flex flex-col items-center justify-center text-gray-500 py-8">
+              {/* Animated Logo */}
+              <div className="relative w-20 h-20 mb-6 flex-shrink-0">
+                {/* Outer rotating ring */}
+                <div className="absolute inset-0 rounded-full border-2 border-dashed border-indigo-500/40 animate-[spin_8s_linear_infinite]"></div>
+                {/* Inner static circle with icon */}
+                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-indigo-900/50 to-purple-900/50 flex items-center justify-center border border-indigo-500/20 shadow-2xl">
+                  <Zap size={28} className="text-indigo-400" />
+                </div>
               </div>
-              <h3 className="text-3xl font-thin tracking-tight text-white mb-2">NEURAL <span className="font-bold text-indigo-400">NEXUS</span></h3>
-              <p className="text-sm text-gray-500 mb-6 tracking-widest uppercase">Omni Class Interface</p>
+              <h3 className="text-2xl font-thin tracking-tight text-white mb-1">NEURAL <span className="font-bold text-indigo-400">NEXUS</span></h3>
+              <p className="text-xs text-gray-500 mb-6 tracking-widest uppercase">Omni Class Interface</p>
               
               {/* Persona Selection Cards */}
               <div className="mb-8 w-full max-w-2xl">
