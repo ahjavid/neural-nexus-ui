@@ -5,8 +5,16 @@ import {
   X, Square, Sliders, Mic, MicOff, Volume2, VolumeX, Download, Clock, 
   Keyboard, HelpCircle, FileText, DownloadCloud, Search, Hash, Command,
   Book, Edit2, Play, Eye, EyeOff, Brain, Phone, PhoneOff, Database,
-  Layout, User, FileCode, PenTool, BarChart
+  Layout, User, FileCode, PenTool, BarChart, FileSpreadsheet, File, Loader2
 } from 'lucide-react';
+
+// Document processing libraries
+import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 // --- Utility Components ---
 
@@ -746,8 +754,9 @@ export default function App() {
 
   // File upload configuration
   const FILE_CONFIG = {
-    maxImageSize: 20 * 1024 * 1024,  // 20MB for images
-    maxTextSize: 10 * 1024 * 1024,   // 10MB for text files
+    maxImageSize: 50 * 1024 * 1024,   // 50MB for images
+    maxTextSize: 25 * 1024 * 1024,    // 25MB for text files
+    maxDocSize: 100 * 1024 * 1024,    // 100MB for documents (PDF, Word, Excel)
     allowedTextExtensions: [
       '.txt', '.md', '.markdown', '.rmd', '.json', '.xml', '.csv', '.tsv',
       '.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
@@ -760,6 +769,7 @@ export default function App() {
       '.rst', '.asciidoc', '.org', '.nix', '.zig', '.v', '.ex', '.exs', '.erl', '.hrl',
       '.hs', '.ml', '.mli', '.clj', '.cljs', '.lisp', '.el', '.vim', '.fish'
     ],
+    allowedDocExtensions: ['.pdf', '.docx', '.doc', '.xlsx', '.xls'],
     allowedImageTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
   };
 
@@ -776,41 +786,141 @@ export default function App() {
   };
 
   const [fileError, setFileError] = useState(null);
+  const [processingFiles, setProcessingFiles] = useState([]);
 
-  const handleFileUpload = (e) => {
+  // --- Document Processing Functions ---
+  
+  // Extract text from PDF
+  const extractPdfText = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += `\n--- Page ${i} ---\n${pageText}`;
+    }
+    
+    return {
+      text: fullText.trim(),
+      pageCount: pdf.numPages,
+      type: 'pdf'
+    };
+  };
+
+  // Extract text from Word document (.docx)
+  const extractWordText = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return {
+      text: result.value,
+      type: 'word',
+      messages: result.messages
+    };
+  };
+
+  // Extract data from Excel files
+  const extractExcelText = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    let fullText = '';
+    
+    workbook.SheetNames.forEach(sheetName => {
+      const sheet = workbook.Sheets[sheetName];
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      fullText += `\n--- Sheet: ${sheetName} ---\n${csv}`;
+    });
+    
+    return {
+      text: fullText.trim(),
+      sheetCount: workbook.SheetNames.length,
+      sheetNames: workbook.SheetNames,
+      type: 'excel'
+    };
+  };
+
+  // Process document based on type
+  const processDocument = async (file) => {
+    const ext = getFileExtension(file.name);
+    
+    try {
+      if (ext === '.pdf') {
+        return await extractPdfText(file);
+      } else if (ext === '.docx' || ext === '.doc') {
+        return await extractWordText(file);
+      } else if (ext === '.xlsx' || ext === '.xls') {
+        return await extractExcelText(file);
+      }
+    } catch (error) {
+      console.error(`Error processing ${file.name}:`, error);
+      throw new Error(`Failed to process ${file.name}: ${error.message}`);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     setFileError(null);
     
-    files.forEach(file => {
+    for (const file of files) {
       const ext = getFileExtension(file.name);
       const isImage = FILE_CONFIG.allowedImageTypes.includes(file.type) || file.type.startsWith('image/');
       const isAllowedText = FILE_CONFIG.allowedTextExtensions.includes(ext) || 
                            FILE_CONFIG.allowedTextExtensions.includes(file.name);
+      const isDocument = FILE_CONFIG.allowedDocExtensions.includes(ext);
       
       // Validate file type
-      if (!isImage && !isAllowedText) {
-        setFileError(`Unsupported file type: ${file.name}. Only images and code/text files are supported.`);
-        return;
+      if (!isImage && !isAllowedText && !isDocument) {
+        setFileError(`Unsupported file type: ${file.name}. Supported: images, code/text files, PDF, Word, Excel.`);
+        continue;
       }
       
       // Validate file size
       if (isImage && file.size > FILE_CONFIG.maxImageSize) {
         setFileError(`Image too large: ${file.name} (${formatFileSize(file.size)}). Max: ${formatFileSize(FILE_CONFIG.maxImageSize)}`);
-        return;
+        continue;
       }
       
-      if (!isImage && file.size > FILE_CONFIG.maxTextSize) {
+      if (isAllowedText && file.size > FILE_CONFIG.maxTextSize) {
         setFileError(`File too large: ${file.name} (${formatFileSize(file.size)}). Max: ${formatFileSize(FILE_CONFIG.maxTextSize)}`);
-        return;
+        continue;
       }
       
-      const reader = new FileReader();
+      if (isDocument && file.size > FILE_CONFIG.maxDocSize) {
+        setFileError(`Document too large: ${file.name} (${formatFileSize(file.size)}). Max: ${formatFileSize(FILE_CONFIG.maxDocSize)}`);
+        continue;
+      }
       
-      reader.onerror = () => {
-        setFileError(`Failed to read file: ${file.name}`);
-      };
+      // Process documents (PDF, Word, Excel)
+      if (isDocument) {
+        setProcessingFiles(prev => [...prev, file.name]);
+        try {
+          const result = await processDocument(file);
+          const docInfo = result.type === 'pdf' ? `${result.pageCount} pages` :
+                          result.type === 'excel' ? `${result.sheetCount} sheets` : 'document';
+          
+          setAttachments(prev => [...prev, { 
+            type: 'document', 
+            content: result.text, 
+            name: file.name,
+            size: file.size,
+            ext: ext,
+            docType: result.type,
+            docInfo: docInfo
+          }]);
+        } catch (error) {
+          setFileError(error.message);
+        } finally {
+          setProcessingFiles(prev => prev.filter(name => name !== file.name));
+        }
+        continue;
+      }
       
+      // Process images
       if (isImage) {
+        const reader = new FileReader();
+        reader.onerror = () => setFileError(`Failed to read file: ${file.name}`);
         reader.onloadend = () => setAttachments(prev => [...prev, { 
           type: 'image', 
           content: reader.result, 
@@ -818,7 +928,13 @@ export default function App() {
           size: file.size 
         }]);
         reader.readAsDataURL(file);
-      } else {
+        continue;
+      }
+      
+      // Process text files
+      if (isAllowedText) {
+        const reader = new FileReader();
+        reader.onerror = () => setFileError(`Failed to read file: ${file.name}`);
         reader.onloadend = () => setAttachments(prev => [...prev, { 
           type: 'file', 
           content: reader.result, 
@@ -828,7 +944,7 @@ export default function App() {
         }]);
         reader.readAsText(file);
       }
-    });
+    }
     e.target.value = ''; 
   };
 
@@ -1030,11 +1146,12 @@ export default function App() {
 
     const images = attachments.filter(a => a.type === 'image').map(a => a.content.split(',')[1]);
     const fileContexts = attachments.filter(a => a.type === 'file').map(a => `\n--- FILE: ${a.name} ---\n${a.content}\n--- END FILE ---\n`).join('');
+    const docContexts = attachments.filter(a => a.type === 'document').map(a => `\n--- DOCUMENT: ${a.name} (${a.docInfo}) ---\n${a.content}\n--- END DOCUMENT ---\n`).join('');
     
     // Inject Knowledge Base
     const knowledgeContext = knowledgeBase.filter(k => activeKnowledgeIds.includes(k.id)).map(k => `\n--- KNOWLEDGE: ${k.title} ---\n${k.content}\n`).join('');
 
-    let fullContent = txt + fileContexts + knowledgeContext;
+    let fullContent = txt + fileContexts + docContexts + knowledgeContext;
     // Keep full attachment content for image previews and chat continuity (IndexedDB has plenty of space)
     const userMsg = { role: 'user', content: fullContent, displayContent: txt, images: images, attachments: attachments };
     
@@ -1473,10 +1590,18 @@ export default function App() {
                                 <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded truncate max-w-[150px]">{att.name}</span>
                               </div>
                             ) : (
-                              <div key={i} className="flex items-center gap-2 bg-black/20 rounded-lg p-2 text-xs border border-white/10">
-                                <FileText size={12}/>
+                              <div key={i} className={`flex items-center gap-2 rounded-lg p-2 text-xs border ${
+                                att.docType === 'pdf' ? 'bg-red-900/20 border-red-500/30' :
+                                att.docType === 'word' ? 'bg-blue-900/20 border-blue-500/30' :
+                                att.docType === 'excel' ? 'bg-green-900/20 border-green-500/30' :
+                                'bg-black/20 border-white/10'
+                              }`}>
+                                {att.docType === 'pdf' && <FileText size={12} className="text-red-400"/>}
+                                {att.docType === 'word' && <FileText size={12} className="text-blue-400"/>}
+                                {att.docType === 'excel' && <FileSpreadsheet size={12} className="text-green-400"/>}
+                                {!att.docType && <FileCode size={12}/>}
                                 <span className="truncate max-w-[150px]">{att.name}</span>
-                                {att.size && <span className="text-[10px] opacity-60">{formatBytes(att.size)}</span>}
+                                <span className="text-[10px] opacity-60">{att.docInfo || formatBytes(att.size)}</span>
                               </div>
                             )
                           ))}
@@ -1530,18 +1655,56 @@ export default function App() {
                </div>
              )}
              
-             {attachments.length > 0 && (
+             {(attachments.length > 0 || processingFiles.length > 0) && (
                <div className={`absolute bottom-full left-0 ${fileError ? 'mb-16' : 'mb-4'} flex gap-2 overflow-x-auto max-w-full p-2 animate-in slide-in-from-bottom-2`}>
-                 {attachments.map((att, i) => (
-                   <div key={i} className="bg-[#18181b] border border-gray-700 rounded-lg p-2 flex items-center gap-3 min-w-[120px] shadow-xl">
-                     {att.type === 'image' ? <img src={att.content} alt="Preview" className="h-8 w-8 object-cover rounded" /> : <div className="h-8 w-8 bg-gray-800 rounded flex items-center justify-center"><FileText size={16} className="text-gray-400"/></div>}
-                     <div className="flex flex-col">
-                       <span className="text-xs text-gray-300 truncate max-w-[100px]">{att.name}</span>
-                       {att.size && <span className="text-[10px] text-gray-500">{formatFileSize(att.size)}</span>}
+                 {/* Processing files indicator */}
+                 {processingFiles.map((name, i) => (
+                   <div key={`processing-${i}`} className="bg-[#18181b] border border-indigo-500/50 rounded-lg p-2 flex items-center gap-3 min-w-[140px] shadow-xl">
+                     <div className="h-8 w-8 bg-indigo-900/50 rounded flex items-center justify-center">
+                       <Loader2 size={16} className="text-indigo-400 animate-spin"/>
                      </div>
-                     <button onClick={() => setAttachments(attachments.filter((_, idx) => idx !== i))} className="hover:text-red-400"><X size={14} /></button>
+                     <div className="flex flex-col">
+                       <span className="text-xs text-gray-300 truncate max-w-[100px]">{name}</span>
+                       <span className="text-[10px] text-indigo-400">Processing...</span>
+                     </div>
                    </div>
                  ))}
+                 {/* Attached files */}
+                 {attachments.map((att, i) => {
+                   // Determine icon based on file type
+                   const getIcon = () => {
+                     if (att.type === 'image') return null;
+                     if (att.type === 'document') {
+                       if (att.docType === 'pdf') return <FileText size={16} className="text-red-400"/>;
+                       if (att.docType === 'word') return <FileText size={16} className="text-blue-400"/>;
+                       if (att.docType === 'excel') return <FileSpreadsheet size={16} className="text-green-400"/>;
+                     }
+                     return <FileCode size={16} className="text-gray-400"/>;
+                   };
+                   
+                   return (
+                     <div key={i} className="bg-[#18181b] border border-gray-700 rounded-lg p-2 flex items-center gap-3 min-w-[120px] shadow-xl">
+                       {att.type === 'image' ? (
+                         <img src={att.content} alt="Preview" className="h-8 w-8 object-cover rounded" />
+                       ) : (
+                         <div className={`h-8 w-8 rounded flex items-center justify-center ${
+                           att.docType === 'pdf' ? 'bg-red-900/30' :
+                           att.docType === 'word' ? 'bg-blue-900/30' :
+                           att.docType === 'excel' ? 'bg-green-900/30' : 'bg-gray-800'
+                         }`}>
+                           {getIcon()}
+                         </div>
+                       )}
+                       <div className="flex flex-col">
+                         <span className="text-xs text-gray-300 truncate max-w-[100px]">{att.name}</span>
+                         <span className="text-[10px] text-gray-500">
+                           {att.docInfo || formatFileSize(att.size)}
+                         </span>
+                       </div>
+                       <button onClick={() => setAttachments(attachments.filter((_, idx) => idx !== i))} className="hover:text-red-400"><X size={14} /></button>
+                     </div>
+                   );
+                 })}
                </div>
              )}
 
@@ -1559,7 +1722,7 @@ export default function App() {
 
             <div className={`relative bg-[#18181b] rounded-xl flex items-end p-2 border transition-colors shadow-2xl ${streaming ? 'border-indigo-500/30' : 'border-gray-700 hover:border-gray-600'}`}>
               <div className="pb-1 pl-1 flex flex-col gap-1">
-                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple accept="image/*,.txt,.md,.rmd,.markdown,.json,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.scala,.html,.css,.scss,.sass,.less,.sql,.sh,.bash,.yaml,.yml,.toml,.xml,.csv,.tsv,.log,.env,.conf,.config,.ini,.r,.R,.jl,.lua,.pl,.ipynb,.tex,.bib,.rst,.zig,.ex,.exs,.hs,.ml,.clj,.vim,.fish" />
+                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple accept="image/*,.txt,.md,.rmd,.markdown,.json,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.scala,.html,.css,.scss,.sass,.less,.sql,.sh,.bash,.yaml,.yml,.toml,.xml,.csv,.tsv,.log,.env,.conf,.config,.ini,.r,.R,.jl,.lua,.pl,.ipynb,.tex,.bib,.rst,.zig,.ex,.exs,.hs,.ml,.clj,.vim,.fish,.pdf,.docx,.doc,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
                  <button onClick={() => fileInputRef.current?.click()} disabled={streaming || !selectedModel} className="p-2 text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50" title="Attach">
                    <Plus size={20} />
                  </button>
