@@ -119,7 +119,7 @@ export default function App() {
   const [persona, setPersona] = useState<PersonaType>('default');
 
   // State: Config
-  const [endpoint, setEndpoint] = useState(() => localStorage.getItem('ollama_endpoint') || '');
+  const [endpoint, setEndpoint] = useState(() => localStorage.getItem('ollama_endpoint') || 'http://localhost:11434');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful, expert AI assistant.');
   const [params, setParams] = useState<ModelParams>(defaultParams);
   const [toolsEnabled, setToolsEnabled] = useState(() => {
@@ -386,13 +386,11 @@ export default function App() {
         setModelCapabilities(caps);
       } else {
         console.warn(`Failed to get capabilities for ${modelName}: HTTP ${response.status}`);
-        // If API fails, assume tools might be supported (let runtime determine)
-        setModelCapabilities(['unknown']);
+        setModelCapabilities([]);
       }
     } catch (err) {
       console.warn('Failed to check model capabilities:', err);
-      // If API fails, assume tools might be supported (let runtime determine)
-      setModelCapabilities(['unknown']);
+      setModelCapabilities([]);
     } finally {
       setCapabilitiesChecked(true);
     }
@@ -862,10 +860,12 @@ export default function App() {
     abortControllerRef.current = new AbortController();
 
     try {
-      // Get enabled tools only if tools are globally enabled AND model supports tools (or unknown)
+      // Determine if model supports tools based on capabilities check
       const modelSupportsTools = modelCapabilities.includes('tools');
-      const capabilitiesUnknown = modelCapabilities.includes('unknown') || !capabilitiesChecked;
-      const tools = (toolsEnabled && (modelSupportsTools || capabilitiesUnknown)) ? toolRegistry.getToolDefinitions() : [];
+      
+      // Only use tools if: enabled globally AND (model confirmed to support OR capabilities not yet checked)
+      const shouldTryTools = toolsEnabled && (modelSupportsTools || !capabilitiesChecked);
+      const tools = shouldTryTools ? toolRegistry.getToolDefinitions() : [];
       
       // Build chat messages for API
       let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }> = [
@@ -873,9 +873,8 @@ export default function App() {
         ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
       ];
 
-      // If tools are enabled but model confirmed to NOT support them, show notice and continue without tools
-      // Only show notice if we've confirmed capabilities (not unknown)
-      if (toolsEnabled && capabilitiesChecked && !modelSupportsTools && !capabilitiesUnknown && toolRegistry.getToolDefinitions().length > 0) {
+      // If tools are enabled but model confirmed NOT to support them, show notice
+      if (toolsEnabled && capabilitiesChecked && !modelSupportsTools && toolRegistry.getToolDefinitions().length > 0) {
         const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
         await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
         return;
