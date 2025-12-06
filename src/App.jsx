@@ -1143,7 +1143,7 @@ export default function App() {
   // Loading screen while IndexedDB initializes
   if (isLoading) {
     return (
-      <div className="flex h-screen bg-[#09090b] text-gray-200 items-center justify-center">
+      <div className="flex h-full bg-[#09090b] text-gray-200 items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-gray-400">Loading Neural Nexus...</p>
@@ -1153,7 +1153,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#09090b] text-gray-200 font-sans overflow-hidden selection:bg-indigo-500/30">
+    <div className="flex h-full bg-[#09090b] text-gray-200 font-sans overflow-hidden selection:bg-indigo-500/30">
       
       {/* Sidebar - Hidden in Zen Mode */}
       {!zenMode && (

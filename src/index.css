@@ -8,10 +8,28 @@
   box-sizing: border-box;
 }
 
+/* Fix viewport height on mobile/laptops with browser UI */
+:root {
+  --vh: 1vh;
+}
+
+html, body, #root {
+  height: 100%;
+  height: 100dvh; /* Dynamic viewport height - accounts for browser UI */
+  overflow: hidden;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Fallback for browsers without dvh support */
+@supports not (height: 100dvh) {
+  html, body, #root {
+    height: 100vh;
+  }
 }
 
 /* Custom Scrollbar */
