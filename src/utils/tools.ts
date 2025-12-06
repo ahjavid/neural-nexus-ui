@@ -503,7 +503,7 @@ const getEmbedding = async (text: string, model: string, endpoint: string): Prom
 };
 
 /**
- * Load and embed knowledge base entries
+ * Load and embed knowledge base entries (supports chunks for better RAG)
  */
 const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => {
   const config = getToolConfig();
@@ -514,7 +514,12 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
     return null;
   }
   
-  let entries: Array<{ id: string; name: string; content: string }>;
+  let entries: Array<{ 
+    id: number; 
+    title: string; 
+    content: string;
+    chunks?: Array<{ id: string; content: string; index: number }>;
+  }>;
   try {
     entries = JSON.parse(storedKb);
   } catch {
@@ -525,41 +530,57 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
     return null;
   }
   
+  // Generate a hash of the knowledge base for cache invalidation
+  const kbHash = entries.map(e => `${e.id}:${e.content.length}`).join('|');
+  
   // Check if cache is still valid
   if (
     embeddingCache &&
     embeddingCache.model === config.embeddingModel &&
-    embeddingCache.entries.size === entries.length
+    (embeddingCache as EmbeddingCache & { kbHash?: string }).kbHash === kbHash
   ) {
-    // Check if all entry IDs match
-    const cachedIds = new Set(embeddingCache.entries.keys());
-    const currentIds = new Set(entries.map(e => e.id));
-    if ([...cachedIds].every(id => currentIds.has(id))) {
-      return embeddingCache;
-    }
+    return embeddingCache;
   }
   
-  // Embed all entries
-  const cache: EmbeddingCache = {
+  console.log('[RAG] Building embedding cache for', entries.length, 'documents');
+  
+  // Embed all entries (use chunks if available, otherwise whole document)
+  const cache: EmbeddingCache & { kbHash?: string } = {
     entries: new Map(),
     model: config.embeddingModel,
-    lastUpdated: Date.now()
+    lastUpdated: Date.now(),
+    kbHash
   };
   
   for (const entry of entries) {
     try {
-      // Create searchable text from name and content
-      const searchText = `${entry.name}\n\n${entry.content}`;
-      const embedding = await getEmbedding(searchText, config.embeddingModel, config.ollamaEndpoint);
-      cache.entries.set(entry.id, {
-        id: entry.id,
-        content: `**${entry.name}**\n${entry.content}`,
-        embedding
-      });
+      if (entry.chunks && entry.chunks.length > 0) {
+        // Embed each chunk separately for better retrieval
+        for (const chunk of entry.chunks) {
+          const chunkId = `${entry.id}-${chunk.id}`;
+          const embedding = await getEmbedding(chunk.content, config.embeddingModel, config.ollamaEndpoint);
+          cache.entries.set(chunkId, {
+            id: chunkId,
+            content: `**${entry.title}** (chunk ${chunk.index + 1}/${entry.chunks.length})\n${chunk.content}`,
+            embedding
+          });
+        }
+      } else {
+        // Embed whole document
+        const searchText = `${entry.title}\n\n${entry.content}`;
+        const embedding = await getEmbedding(searchText, config.embeddingModel, config.ollamaEndpoint);
+        cache.entries.set(String(entry.id), {
+          id: String(entry.id),
+          content: `**${entry.title}**\n${entry.content}`,
+          embedding
+        });
+      }
     } catch (e) {
-      console.error(`Failed to embed entry ${entry.name}:`, e);
+      console.error(`[RAG] Failed to embed entry ${entry.title}:`, e);
     }
   }
+  
+  console.log('[RAG] Embedded', cache.entries.size, 'chunks/documents');
   
   embeddingCache = cache;
   return cache;

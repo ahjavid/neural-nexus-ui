@@ -1016,8 +1016,13 @@ export default function App() {
     }
   };
 
-  const addKnowledge = (title: string, content: string) => {
-    setKnowledgeBase([...knowledgeBase, { id: Date.now(), title, content }]);
+  const addKnowledge = (title: string, content: string, metadata?: Partial<KnowledgeEntry>) => {
+    setKnowledgeBase([...knowledgeBase, { 
+      id: Date.now(), 
+      title, 
+      content,
+      ...metadata 
+    }]);
   };
 
   const toggleKnowledge = (id: number) => {

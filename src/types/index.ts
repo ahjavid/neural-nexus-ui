@@ -5,7 +5,7 @@ export interface Attachment {
   name: string;
   size: number;
   ext?: string;
-  docType?: 'pdf' | 'word' | 'excel';
+  docType?: 'pdf' | 'word' | 'excel' | 'text' | 'url';
   docInfo?: string;
 }
 
@@ -32,6 +32,20 @@ export interface KnowledgeEntry {
   id: number;
   title: string;
   content: string;
+  // Enhanced metadata
+  source?: 'manual' | 'file' | 'url';
+  fileName?: string;
+  fileType?: string;
+  url?: string;
+  chunks?: KnowledgeChunk[];
+  createdAt?: number;
+  charCount?: number;
+}
+
+export interface KnowledgeChunk {
+  id: string;
+  content: string;
+  index: number;
 }
 
 // Model types
@@ -100,11 +114,13 @@ export type ConnectionStatus = 'connected' | 'disconnected' | 'checking' | 'erro
 // Document processing result
 export interface DocumentResult {
   text: string;
-  type: 'pdf' | 'word' | 'excel';
+  type: 'pdf' | 'word' | 'excel' | 'text' | 'url';
   pageCount?: number;
   sheetCount?: number;
   sheetNames?: string[];
   messages?: unknown[];
+  title?: string;
+  url?: string;
 }
 
 // Tool calling types
