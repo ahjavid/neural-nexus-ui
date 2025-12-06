@@ -22,7 +22,7 @@ const HelpModal = lazy(() => import('./components/HelpModal'));
 import { dbManager, migrateFromLocalStorage } from './utils/storage';
 import { processDocument } from './utils/documents';
 import { formatFileSize } from './utils/helpers';
-import { toolRegistry } from './utils/tools';
+import { toolRegistry, clearEmbeddingCache } from './utils/tools';
 
 // Types
 import type {
@@ -230,7 +230,7 @@ export default function App() {
     };
   }, [sessions, isLoading]);
 
-  // Save knowledge base to IndexedDB
+  // Save knowledge base to IndexedDB and localStorage (for tools)
   useEffect(() => {
     if (isLoading) return;
 
@@ -238,6 +238,10 @@ export default function App() {
       try {
         await dbManager.clear('knowledge');
         await dbManager.putAll('knowledge', knowledgeBase);
+        // Also save to localStorage for RAG tool access
+        localStorage.setItem('nexus_knowledge_base', JSON.stringify(knowledgeBase));
+        // Clear embedding cache so RAG search re-embeds updated documents
+        clearEmbeddingCache();
       } catch (e) {
         console.error('Failed to save knowledge:', e);
       }

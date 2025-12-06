@@ -10,6 +10,36 @@
 import type { ToolDefinition, ToolHandler, RegisteredTool, ToolCall } from '../types';
 
 // ============================================
+// Configuration Store (for API keys)
+// ============================================
+
+interface ToolConfig {
+  tavilyApiKey?: string;
+  ollamaEndpoint: string;
+  embeddingModel: string;
+}
+
+const getToolConfig = (): ToolConfig => {
+  return {
+    tavilyApiKey: localStorage.getItem('nexus_tavily_api_key') || undefined,
+    ollamaEndpoint: localStorage.getItem('ollama_endpoint') || 'http://localhost:11434',
+    embeddingModel: localStorage.getItem('nexus_embedding_model') || 'mxbai-embed-large:latest'
+  };
+};
+
+export const setToolConfig = (key: keyof ToolConfig, value: string): void => {
+  if (key === 'tavilyApiKey') {
+    localStorage.setItem('nexus_tavily_api_key', value);
+  } else if (key === 'embeddingModel') {
+    localStorage.setItem('nexus_embedding_model', value);
+  }
+};
+
+export const getToolConfigValue = (key: keyof ToolConfig): string | undefined => {
+  return getToolConfig()[key];
+};
+
+// ============================================
 // Built-in Tool Handlers
 // ============================================
 
@@ -326,6 +356,282 @@ const textStats: ToolHandler = (args) => {
 - Average word length: ${words > 0 ? (charsNoSpaces / words).toFixed(1) : 0} chars`;
 };
 
+/**
+ * Tavily web search - high quality AI-optimized search
+ */
+const tavilySearch: ToolHandler = async (args) => {
+  const query = args.query as string;
+  const searchDepth = (args.search_depth as string) || 'basic';
+  const maxResults = (args.max_results as number) || 5;
+  
+  if (!query) {
+    return 'Error: No search query provided';
+  }
+  
+  const config = getToolConfig();
+  if (!config.tavilyApiKey) {
+    return 'Error: Tavily API key not configured. Please add your API key in Settings → Tools section. Get a free key at https://tavily.com';
+  }
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        api_key: config.tavilyApiKey,
+        query: query,
+        search_depth: searchDepth,
+        max_results: maxResults,
+        include_answer: true,
+        include_raw_content: false
+      }),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      if (response.status === 401) {
+        return 'Error: Invalid Tavily API key. Please check your key in Settings.';
+      }
+      return `Error: Tavily API returned HTTP ${response.status}: ${errorData}`;
+    }
+    
+    const data = await response.json();
+    const results: string[] = [];
+    
+    // Add AI-generated answer if available
+    if (data.answer) {
+      results.push(`**Answer:** ${data.answer}\n`);
+    }
+    
+    // Add search results
+    if (data.results && data.results.length > 0) {
+      results.push('**Sources:**');
+      for (const result of data.results) {
+        results.push(`\n**${result.title}**`);
+        results.push(`URL: ${result.url}`);
+        if (result.content) {
+          results.push(`${result.content.slice(0, 300)}${result.content.length > 300 ? '...' : ''}`);
+        }
+        if (result.score) {
+          results.push(`Relevance: ${(result.score * 100).toFixed(0)}%`);
+        }
+      }
+    }
+    
+    if (results.length === 0) {
+      return `No results found for "${query}".`;
+    }
+    
+    return `Tavily Search results for "${query}":\n\n${results.join('\n')}`;
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') {
+      return 'Error: Search timed out';
+    }
+    return `Error searching Tavily: ${(e as Error).message}`;
+  }
+};
+
+// ============================================
+// RAG (Retrieval-Augmented Generation) Search
+// ============================================
+
+interface EmbeddingCache {
+  entries: Map<string, { id: string; content: string; embedding: number[] }>;
+  model: string;
+  lastUpdated: number;
+}
+
+let embeddingCache: EmbeddingCache | null = null;
+
+/**
+ * Calculate cosine similarity between two vectors
+ */
+const cosineSimilarity = (a: number[], b: number[]): number => {
+  if (a.length !== b.length) return 0;
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
+  return magnitude === 0 ? 0 : dotProduct / magnitude;
+};
+
+/**
+ * Get embedding from Ollama
+ */
+const getEmbedding = async (text: string, model: string, endpoint: string): Promise<number[]> => {
+  const response = await fetch(`${endpoint}/api/embeddings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: model,
+      prompt: text
+    })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Embedding API returned HTTP ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.embedding;
+};
+
+/**
+ * Load and embed knowledge base entries
+ */
+const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => {
+  const config = getToolConfig();
+  
+  // Load knowledge base from localStorage (same key as App.tsx)
+  const storedKb = localStorage.getItem('nexus_knowledge_base');
+  if (!storedKb) {
+    return null;
+  }
+  
+  let entries: Array<{ id: string; name: string; content: string }>;
+  try {
+    entries = JSON.parse(storedKb);
+  } catch {
+    return null;
+  }
+  
+  if (!entries || entries.length === 0) {
+    return null;
+  }
+  
+  // Check if cache is still valid
+  if (
+    embeddingCache &&
+    embeddingCache.model === config.embeddingModel &&
+    embeddingCache.entries.size === entries.length
+  ) {
+    // Check if all entry IDs match
+    const cachedIds = new Set(embeddingCache.entries.keys());
+    const currentIds = new Set(entries.map(e => e.id));
+    if ([...cachedIds].every(id => currentIds.has(id))) {
+      return embeddingCache;
+    }
+  }
+  
+  // Embed all entries
+  const cache: EmbeddingCache = {
+    entries: new Map(),
+    model: config.embeddingModel,
+    lastUpdated: Date.now()
+  };
+  
+  for (const entry of entries) {
+    try {
+      // Create searchable text from name and content
+      const searchText = `${entry.name}\n\n${entry.content}`;
+      const embedding = await getEmbedding(searchText, config.embeddingModel, config.ollamaEndpoint);
+      cache.entries.set(entry.id, {
+        id: entry.id,
+        content: `**${entry.name}**\n${entry.content}`,
+        embedding
+      });
+    } catch (e) {
+      console.error(`Failed to embed entry ${entry.name}:`, e);
+    }
+  }
+  
+  embeddingCache = cache;
+  return cache;
+};
+
+/**
+ * RAG search using embeddings
+ */
+const ragSearch: ToolHandler = async (args) => {
+  const query = args.query as string;
+  const topK = (args.top_k as number) || 3;
+  const threshold = (args.threshold as number) || 0.5;
+  
+  if (!query) {
+    return 'Error: No search query provided';
+  }
+  
+  const config = getToolConfig();
+  
+  try {
+    // Load and embed knowledge base
+    const cache = await loadKnowledgeBaseEmbeddings();
+    
+    if (!cache || cache.entries.size === 0) {
+      return 'No documents found in knowledge base. Please add documents in the Knowledge Base section.';
+    }
+    
+    // Get query embedding
+    const queryEmbedding = await getEmbedding(query, config.embeddingModel, config.ollamaEndpoint);
+    
+    // Calculate similarities
+    const similarities: Array<{ id: string; content: string; score: number }> = [];
+    
+    for (const [, entry] of cache.entries) {
+      const score = cosineSimilarity(queryEmbedding, entry.embedding);
+      if (score >= threshold) {
+        similarities.push({
+          id: entry.id,
+          content: entry.content,
+          score
+        });
+      }
+    }
+    
+    // Sort by score descending
+    similarities.sort((a, b) => b.score - a.score);
+    
+    // Take top K
+    const topResults = similarities.slice(0, topK);
+    
+    if (topResults.length === 0) {
+      return `No relevant documents found for "${query}" (threshold: ${threshold}). Try lowering the threshold or adding more relevant documents.`;
+    }
+    
+    // Format results
+    const results: string[] = [
+      `Found ${topResults.length} relevant document(s) for "${query}":\n`
+    ];
+    
+    for (let i = 0; i < topResults.length; i++) {
+      const result = topResults[i];
+      results.push(`---\n**Document ${i + 1}** (Relevance: ${(result.score * 100).toFixed(1)}%)\n`);
+      results.push(result.content);
+      results.push('');
+    }
+    
+    return results.join('\n');
+  } catch (e) {
+    if ((e as Error).message?.includes('HTTP')) {
+      return `Error: Could not generate embeddings. Make sure the embedding model "${config.embeddingModel}" is available in Ollama.`;
+    }
+    return `Error performing RAG search: ${(e as Error).message}`;
+  }
+};
+
+/**
+ * Clear embedding cache (call when knowledge base changes)
+ */
+export const clearEmbeddingCache = (): void => {
+  embeddingCache = null;
+};
+
 // ============================================
 // Tool Definitions (JSON Schema)
 // ============================================
@@ -488,6 +794,59 @@ const toolDefinitions: Record<string, ToolDefinition> = {
         }
       }
     }
+  },
+  
+  tavily_search: {
+    type: 'function',
+    function: {
+      name: 'tavily_search',
+      description: 'Search the web using Tavily AI-powered search. Provides high-quality, AI-optimized search results with direct answers. Best for research, current events, and detailed information. Requires API key.',
+      parameters: {
+        type: 'object',
+        required: ['query'],
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query. Be specific for better results.'
+          },
+          search_depth: {
+            type: 'string',
+            description: 'Search depth: "basic" (faster) or "advanced" (more comprehensive). Defaults to "basic".',
+            enum: ['basic', 'advanced']
+          },
+          max_results: {
+            type: 'number',
+            description: 'Maximum number of results to return (1-10). Defaults to 5.'
+          }
+        }
+      }
+    }
+  },
+  
+  rag_search: {
+    type: 'function',
+    function: {
+      name: 'rag_search',
+      description: 'Search through the knowledge base using semantic similarity (RAG). Uses AI embeddings to find relevant documents even if they don\'t contain the exact search terms. Best for searching local documents and notes.',
+      parameters: {
+        type: 'object',
+        required: ['query'],
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query. Describe what you\'re looking for.'
+          },
+          top_k: {
+            type: 'number',
+            description: 'Number of top results to return (1-10). Defaults to 3.'
+          },
+          threshold: {
+            type: 'number',
+            description: 'Minimum similarity threshold (0-1). Lower values return more results. Defaults to 0.5.'
+          }
+        }
+      }
+    }
   }
 };
 
@@ -503,7 +862,9 @@ const toolHandlers: Record<string, ToolHandler> = {
   encode_text: encodeText,
   generate_uuid: generateUuid,
   web_search: webSearch,
-  text_stats: textStats
+  text_stats: textStats,
+  tavily_search: tavilySearch,
+  rag_search: ragSearch
 };
 
 class ToolRegistry {

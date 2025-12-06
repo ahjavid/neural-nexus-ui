@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database } from 'lucide-react';
 import { Button } from './Button';
 import type { ModelParams } from '../types';
 import { formatBytes } from '../utils/helpers';
-import { toolRegistry } from '../utils/tools';
+import { toolRegistry, setToolConfig, getToolConfigValue } from '../utils/tools';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -56,6 +56,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [, forceUpdate] = useState({});
+  const [tavilyApiKey, setTavilyApiKey] = useState(getToolConfigValue('tavilyApiKey') || '');
+  const [embeddingModel, setEmbeddingModel] = useState(getToolConfigValue('embeddingModel') || 'mxbai-embed-large:latest');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   if (!isOpen) return null;
 
@@ -180,6 +183,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <strong className="text-gray-400">Note:</strong> Tool calling requires models that support function calling 
                     (e.g., qwen3, llama3.1+, mistral). When enabled, responses may be slightly slower as the AI 
                     decides whether to use tools.
+                  </div>
+                  
+                  {/* API Keys and Settings */}
+                  <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mt-4">Tool Configuration</div>
+                  
+                  {/* Tavily API Key */}
+                  <div className="p-3 bg-[#09090b] rounded-lg border border-gray-800 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Key size={14} className="text-amber-400" />
+                      <span className="text-xs font-medium text-gray-300">Tavily API Key</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={tavilyApiKey}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setTavilyApiKey(value);
+                          setToolConfig('tavilyApiKey', value);
+                        }}
+                        placeholder="tvly-..."
+                        className="flex-1 bg-[#18181b] border border-gray-700 rounded px-2 py-1.5 text-xs font-mono text-gray-300 focus:border-amber-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="px-2 text-xs text-gray-500 hover:text-gray-300"
+                      >
+                        {showApiKey ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-600">
+                      Get a free API key at <a href="https://tavily.com" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">tavily.com</a>
+                    </p>
+                  </div>
+                  
+                  {/* Embedding Model */}
+                  <div className="p-3 bg-[#09090b] rounded-lg border border-gray-800 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Database size={14} className="text-purple-400" />
+                      <span className="text-xs font-medium text-gray-300">Embedding Model (for RAG)</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={embeddingModel}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setEmbeddingModel(value);
+                        setToolConfig('embeddingModel', value);
+                      }}
+                      placeholder="mxbai-embed-large:latest"
+                      className="w-full bg-[#18181b] border border-gray-700 rounded px-2 py-1.5 text-xs font-mono text-gray-300 focus:border-purple-500 focus:outline-none"
+                    />
+                    <p className="text-[10px] text-gray-600">
+                      Ollama embedding model for semantic search. Examples: mxbai-embed-large, bge-m3, nomic-embed-text
+                    </p>
                   </div>
                 </>
               )}
