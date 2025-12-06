@@ -1035,9 +1035,8 @@ export default function App() {
     const knowledgeContext = knowledgeBase.filter(k => activeKnowledgeIds.includes(k.id)).map(k => `\n--- KNOWLEDGE: ${k.title} ---\n${k.content}\n`).join('');
 
     let fullContent = txt + fileContexts + knowledgeContext;
-    // Store attachment metadata only (not full content) to save localStorage space
-    const attachmentMeta = attachments.map(att => ({ type: att.type, name: att.name, size: att.size, ext: att.ext }));
-    const userMsg = { role: 'user', content: fullContent, displayContent: txt, images: images, attachments: attachmentMeta };
+    // Keep full attachment content for image previews and chat continuity (IndexedDB has plenty of space)
+    const userMsg = { role: 'user', content: fullContent, displayContent: txt, images: images, attachments: attachments };
     
     const startTime = Date.now();
     const updatedMessages = [...messages, userMsg];
@@ -1365,14 +1364,27 @@ export default function App() {
 
                 <div className={`flex flex-col max-w-[85%] md:max-w-[75%] w-full ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     <div className={`relative px-5 py-4 rounded-2xl shadow-md w-full ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-[#18181b] border border-gray-800 text-gray-200 rounded-tl-sm'}`}>
-                      {/* Attachments */}
+                      {/* Attachments with Image Previews */}
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-3">
                           {msg.attachments.map((att, i) => (
-                            <div key={i} className="flex items-center gap-2 bg-black/20 rounded-lg p-2 text-xs border border-white/10">
-                              {att.type === 'image' ? <ImageIcon size={12}/> : <FileText size={12}/>}
-                              <span className="truncate max-w-[150px]">{att.name}</span>
-                            </div>
+                            att.type === 'image' && att.content ? (
+                              <div key={i} className="relative group">
+                                <img 
+                                  src={att.content} 
+                                  alt={att.name} 
+                                  className="max-h-48 max-w-64 rounded-lg border border-white/20 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                  onClick={() => window.open(att.content, '_blank')}
+                                />
+                                <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 px-1.5 py-0.5 rounded truncate max-w-[150px]">{att.name}</span>
+                              </div>
+                            ) : (
+                              <div key={i} className="flex items-center gap-2 bg-black/20 rounded-lg p-2 text-xs border border-white/10">
+                                <FileText size={12}/>
+                                <span className="truncate max-w-[150px]">{att.name}</span>
+                                {att.size && <span className="text-[10px] opacity-60">{formatBytes(att.size)}</span>}
+                              </div>
+                            )
                           ))}
                         </div>
                       )}
