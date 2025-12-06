@@ -837,6 +837,11 @@ export default function App() {
         while (iteration < maxIterations) {
           iteration++;
           
+          // Show indicator when checking for tool calls (iteration > 1 means we're processing tool results)
+          if (iteration > 1) {
+            setExecutingTools(true);
+          }
+          
           const result = await executeChat(chatMessages, tools, abortControllerRef.current.signal);
           
           // Check if model wants to use tools
@@ -862,10 +867,12 @@ export default function App() {
               });
             }
             
-            setExecutingTools(false);
+            // Keep executingTools true - we'll loop and continue
             // Continue loop to get next response
           } else {
             // No tool calls, we have the final response
+            setExecutingTools(false);
+            
             // Update with the final content
             const elapsed = (Date.now() - startTime) / 1000;
             const finalMsg: Message = {
