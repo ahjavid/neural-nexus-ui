@@ -33,7 +33,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   return (
     <div className={`flex gap-4 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'} group/msg`}>
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-1 shadow-lg ${
-        isUser ? 'order-2 bg-indigo-600' : 'bg-[#18181b] border border-gray-700'
+        isUser ? 'order-2 bg-indigo-600' : 'bg-theme-bg-secondary border border-theme-border-secondary'
       }`}>
         {isUser ? (
           <span className="text-xs font-bold">ME</span>
@@ -46,7 +46,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         <div className={`relative px-5 py-4 rounded-2xl shadow-md w-full ${
           isUser 
             ? 'bg-indigo-600 text-white rounded-tr-sm' 
-            : 'bg-[#18181b] border border-gray-800 text-gray-200 rounded-tl-sm'
+            : 'bg-theme-bg-secondary border border-theme-border-primary text-theme-text-primary rounded-tl-sm'
         }`}>
           {/* Attachments with Image Previews */}
           {message.attachments && message.attachments.length > 0 && (
@@ -109,8 +109,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           <div className="flex items-center gap-3 mt-2 ml-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
             <button 
               onClick={handleCopy}
-              className={`text-gray-500 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-1 focus:ring-offset-[#09090b] rounded ${
-                copied ? 'text-emerald-400' : ''
+              className={`text-theme-text-muted hover:text-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded ${
+                copied ? 'text-emerald-500' : ''
               }`}
               title={copied ? 'Copied!' : 'Copy message'}
             >
@@ -118,15 +118,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </button>
             <button 
               onClick={() => onSpeakMessage(message.content, index)} 
-              className={`text-gray-500 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-1 focus:ring-offset-[#09090b] rounded ${
-                speakingMsgId === index ? 'text-indigo-400 animate-pulse' : ''
+              className={`text-theme-text-muted hover:text-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded ${
+                speakingMsgId === index ? 'text-indigo-500 animate-pulse' : ''
               }`}
               title={speakingMsgId === index ? 'Stop speaking' : 'Read aloud'}
             >
               {speakingMsgId === index ? <VolumeX size={14} /> : <Volume2 size={14} />}
             </button>
             {message.timing && (
-              <span className="flex items-center gap-2 text-[10px] text-gray-600 font-mono">
+              <span className="flex items-center gap-2 text-[10px] text-theme-text-muted font-mono">
                 <span className="flex items-center gap-1"><Clock size={10} />{message.timing}s</span>
                 {message.tokenSpeed && <span className="flex items-center gap-1"><Zap size={10} />{message.tokenSpeed} t/s</span>}
               </span>

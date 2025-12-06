@@ -57,7 +57,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   ];
 
   return (
-    <div className="min-h-full flex flex-col items-center justify-start py-8 md:py-12 text-gray-500 px-4">
+    <div className="min-h-full flex flex-col items-center justify-start py-8 md:py-12 text-theme-text-muted px-4">
       {/* Hero Section */}
       <div className="relative mb-6 flex-shrink-0">
         {/* Animated glow background */}
@@ -77,10 +77,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </div>
       
       {/* Brand Text */}
-      <h1 className="text-2xl md:text-3xl font-extralight tracking-tight text-white mb-1 flex-shrink-0">
-        NEURAL <span className="font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">NEXUS</span>
+      <h1 className="text-2xl md:text-3xl font-extralight tracking-tight text-theme-text-primary mb-1 flex-shrink-0">
+        NEURAL <span className="font-bold bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">NEXUS</span>
       </h1>
-      <p className="text-[10px] text-gray-500 mb-4 tracking-[0.25em] uppercase flex-shrink-0">Your Local AI Companion</p>
+      <p className="text-[10px] text-theme-text-muted mb-4 tracking-[0.25em] uppercase flex-shrink-0">Your Local AI Companion</p>
       
       {/* Connection Status Banner */}
       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full mb-6 transition-all flex-shrink-0 ${
@@ -113,7 +113,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       
       {/* Persona Selection - Enhanced Cards */}
       <div className="w-full max-w-xl mb-6 flex-shrink-0">
-        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 text-center font-medium">Choose Mode</p>
+        <p className="text-[10px] text-theme-text-muted uppercase tracking-wider mb-2 text-center font-medium">Choose Mode</p>
         <div className="grid grid-cols-4 gap-2">
           {(Object.entries(personaConfigs) as [PersonaType, typeof personaConfigs[PersonaType]][]).map(([id, config]) => {
             const Icon = config.icon;
@@ -148,11 +148,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 className={`group relative flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all duration-300 ${
                   isActive 
                     ? `${style.active} text-white` 
-                    : `border-gray-800 bg-[#18181b]/50 ${style.inactive}`
+                    : `border-theme-border-primary bg-theme-bg-secondary/50 ${style.inactive}`
                 }`}
               >
                 <Icon size={18} className={isActive ? 'text-white' : style.icon} />
-                <span className={`font-medium text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>{config.name}</span>
+                <span className={`font-medium text-xs ${isActive ? 'text-white' : 'text-theme-text-secondary'}`}>{config.name}</span>
                 {isActive && (
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow">
                     <Check size={10} className="text-gray-900" />
@@ -166,17 +166,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       
       {/* Suggested Prompts */}
       <div className="w-full max-w-xl mb-6 flex-shrink-0">
-        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 text-center font-medium">Try asking</p>
+        <p className="text-[10px] text-theme-text-muted uppercase tracking-wider mb-2 text-center font-medium">Try asking</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {suggestedPrompts.map((prompt, i) => (
             <button
               key={i}
               onClick={() => onSetInput(prompt.text)}
               disabled={connectionStatus !== 'connected' || !selectedModel}
-              className="flex items-center gap-2 p-2.5 rounded-lg bg-[#18181b]/30 border border-gray-800/50 hover:border-gray-700 hover:bg-[#18181b]/60 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 p-2.5 rounded-lg bg-theme-bg-secondary/30 border border-theme-border-primary/50 hover:border-theme-border-secondary hover:bg-theme-bg-secondary/60 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <prompt.icon size={14} className="text-gray-500 group-hover:text-indigo-400 transition-colors flex-shrink-0" />
-              <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors flex-1 truncate">{prompt.text}</span>
+              <prompt.icon size={14} className="text-theme-text-muted group-hover:text-indigo-400 transition-colors flex-shrink-0" />
+              <span className="text-xs text-theme-text-secondary group-hover:text-theme-text-primary transition-colors flex-1 truncate">{prompt.text}</span>
             </button>
           ))}
         </div>
@@ -188,18 +188,18 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <button 
             key={i} 
             onClick={item.action}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#18181b]/40 border border-gray-800/50 hover:border-gray-700 rounded-lg transition-all hover:bg-[#18181b]/70 group text-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-bg-secondary/40 border border-theme-border-primary/50 hover:border-theme-border-secondary rounded-lg transition-all hover:bg-theme-bg-secondary/70 group text-xs"
           >
-            <item.icon size={12} className="text-gray-500 group-hover:text-indigo-400 transition-colors" />
-            <span className="text-gray-400 group-hover:text-gray-200">{item.title}</span>
+            <item.icon size={12} className="text-theme-text-muted group-hover:text-indigo-400 transition-colors" />
+            <span className="text-theme-text-secondary group-hover:text-theme-text-primary">{item.title}</span>
           </button>
         ))}
       </div>
       
       {/* Keyboard Shortcut Hint */}
-      <p className="text-[10px] text-gray-600 mt-4 flex items-center gap-1.5 flex-shrink-0">
+      <p className="text-[10px] text-theme-text-muted mt-4 flex items-center gap-1.5 flex-shrink-0">
         <Keyboard size={10} />
-        Press <kbd className="px-1 py-0.5 bg-gray-800 rounded text-gray-400 font-mono text-[9px]">?</kbd> for shortcuts
+        Press <kbd className="px-1 py-0.5 bg-theme-bg-tertiary rounded text-theme-text-secondary font-mono text-[9px]">?</kbd> for shortcuts
       </p>
     </div>
   );

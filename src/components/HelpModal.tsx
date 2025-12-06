@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpCircle, X, MessageSquare, Keyboard, Layout, Mic } from 'lucide-react';
+import { HelpCircle, X, MessageSquare, Keyboard, Mic } from 'lucide-react';
 
 interface HelpModalProps {
   isOpen: boolean;
@@ -42,15 +42,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-[#18181b] border border-gray-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
+      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
         <button 
           onClick={onClose} 
-          className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1"
+          className="absolute top-4 right-4 text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1"
         >
           <X size={20} />
         </button>
         
-        <h3 className="font-bold text-xl text-gray-200 mb-6 flex items-center gap-2">
+        <h3 className="font-bold text-xl text-theme-text-primary mb-6 flex items-center gap-2">
           <HelpCircle size={24} className="text-indigo-500" /> Keyboard Shortcuts
         </h3>
         
@@ -59,13 +59,13 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             <div key={gIdx}>
               <div className="flex items-center gap-2 mb-2">
                 <group.icon size={14} className="text-indigo-400" />
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{group.title}</span>
+                <span className="text-xs font-bold text-theme-text-muted uppercase tracking-wider">{group.title}</span>
               </div>
               <div className="space-y-2 pl-5">
                 {group.shortcuts.map((s, i) => (
                   <div key={i} className="flex justify-between items-center text-sm">
-                    <span className="text-gray-400">{s.label}</span>
-                    <kbd className="bg-gray-800 px-2 py-1 rounded border border-gray-700 text-gray-300 font-mono text-xs">
+                    <span className="text-theme-text-secondary">{s.label}</span>
+                    <kbd className="bg-theme-bg-tertiary px-2 py-1 rounded border border-theme-border-secondary text-theme-text-secondary font-mono text-xs">
                       {s.key}
                     </kbd>
                   </div>
@@ -75,9 +75,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           ))}
         </div>
         
-        <div className="mt-6 pt-4 border-t border-gray-800">
-          <p className="text-xs text-gray-600 text-center">
-            Tip: Use <kbd className="bg-gray-800 px-1.5 py-0.5 rounded text-gray-400 font-mono text-[10px]">/</kbd> to see available commands
+        <div className="mt-6 pt-4 border-t border-theme-border-primary">
+          <p className="text-xs text-theme-text-muted text-center">
+            Tip: Use <kbd className="bg-theme-bg-tertiary px-1.5 py-0.5 rounded text-theme-text-secondary font-mono text-[10px]">/</kbd> to see available commands
           </p>
         </div>
       </div>

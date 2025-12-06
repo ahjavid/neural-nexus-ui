@@ -69,15 +69,15 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
 }) => {
   if (variant === 'compact') {
     return (
-      <div className="bg-[#18181b] p-1 rounded-lg border border-gray-700 flex items-center gap-1">
+      <div className="bg-theme-bg-secondary p-1 rounded-lg border border-theme-border-secondary flex items-center gap-1">
         {Object.entries(personaConfigs).map(([id, config]) => {
           const Icon = config.icon;
           const isActive = currentPersona === id;
           const colorClasses: Record<string, string> = {
-            indigo: isActive ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10',
-            emerald: isActive ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10',
-            purple: isActive ? 'bg-purple-600 text-white' : 'text-gray-500 hover:text-purple-400 hover:bg-purple-500/10',
-            amber: isActive ? 'bg-amber-600 text-white' : 'text-gray-500 hover:text-amber-400 hover:bg-amber-500/10'
+            indigo: isActive ? 'bg-indigo-600 text-white' : 'text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10',
+            emerald: isActive ? 'bg-emerald-600 text-white' : 'text-theme-text-muted hover:text-emerald-400 hover:bg-emerald-500/10',
+            purple: isActive ? 'bg-purple-600 text-white' : 'text-theme-text-muted hover:text-purple-400 hover:bg-purple-500/10',
+            amber: isActive ? 'bg-amber-600 text-white' : 'text-theme-text-muted hover:text-amber-400 hover:bg-amber-500/10'
           };
           return (
             <button 
@@ -131,11 +131,11 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
             className={`group relative flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all duration-300 ${
               isActive 
                 ? `${style.active} text-white` 
-                : `border-gray-800 bg-[#18181b]/50 ${style.inactive}`
+                : `border-theme-border-primary bg-theme-bg-secondary/50 ${style.inactive}`
             }`}
           >
             <Icon size={18} className={isActive ? 'text-white' : style.icon} />
-            <span className={`font-medium text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>
+            <span className={`font-medium text-xs ${isActive ? 'text-white' : 'text-theme-text-secondary'}`}>
               {config.name}
             </span>
           </button>

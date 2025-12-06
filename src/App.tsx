@@ -1058,17 +1058,17 @@ export default function App() {
   // Loading screen
   if (isLoading) {
     return (
-      <div className="flex h-full bg-[#09090b] text-gray-200 items-center justify-center">
+      <div className="flex h-full bg-theme-bg-primary text-theme-text-primary items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-400">Loading Neural Nexus...</p>
+          <p className="text-theme-text-muted">Loading Neural Nexus...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full bg-[#09090b] text-gray-200 font-sans overflow-hidden selection:bg-indigo-500/30">
+    <div className="flex h-full bg-theme-bg-primary text-theme-text-primary font-sans overflow-hidden selection:bg-indigo-500/30">
       {/* Sidebar */}
       {!zenMode && (
         <Sidebar
@@ -1096,7 +1096,7 @@ export default function App() {
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full relative bg-[#09090b]">
+      <div className="flex-1 flex flex-col h-full relative bg-theme-bg-primary">
         {/* Header */}
         {zenMode ? (
           <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
@@ -1107,32 +1107,32 @@ export default function App() {
             </div>
             <button
               onClick={() => setZenMode(false)}
-              className="p-2.5 bg-gray-800/70 hover:bg-gray-700 text-gray-400 hover:text-white rounded-full transition-all backdrop-blur-sm border border-gray-700/50"
+              className="p-2.5 bg-theme-bg-elevated/70 hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-primary rounded-full transition-all backdrop-blur-sm border border-theme-border-primary/50"
               title="Exit Zen Mode"
             >
               <X size={18} />
             </button>
           </div>
         ) : (
-          <div className="h-16 border-b border-gray-800 flex items-center justify-between px-4 md:px-6 bg-[#09090b]/80 backdrop-blur-sm z-10">
+          <div className="h-16 border-b border-theme-border-primary flex items-center justify-between px-4 md:px-6 bg-theme-bg-primary/80 backdrop-blur-sm z-10">
             <div className="flex items-center gap-3">
               {!isSidebarOpen && (
-                <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 hover:bg-gray-800 rounded-lg text-gray-400">
+                <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 hover:bg-theme-bg-elevated rounded-lg text-theme-text-muted">
                   <ChevronRight size={20} />
                 </button>
               )}
               <div className="flex items-center gap-4">
-                <h2 className="text-gray-200 font-medium text-sm md:text-base hidden md:block">{currentSession.title}</h2>
+                <h2 className="text-theme-text-primary font-medium text-sm md:text-base hidden md:block">{currentSession.title}</h2>
                 {/* Persona Matrix */}
-                <div className="bg-[#18181b] p-1 rounded-lg border border-gray-700 flex items-center gap-1">
+                <div className="bg-theme-bg-secondary p-1 rounded-lg border border-theme-border-secondary flex items-center gap-1">
                   {Object.entries(personaConfigs).map(([id, config]) => {
                     const Icon = config.icon;
                     const isActive = persona === id;
                     const colorClasses: Record<string, string> = {
-                      indigo: isActive ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10',
-                      emerald: isActive ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10',
-                      purple: isActive ? 'bg-purple-600 text-white' : 'text-gray-500 hover:text-purple-400 hover:bg-purple-500/10',
-                      amber: isActive ? 'bg-amber-600 text-white' : 'text-gray-500 hover:text-amber-400 hover:bg-amber-500/10'
+                      indigo: isActive ? 'bg-indigo-600 text-white' : 'text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10',
+                      emerald: isActive ? 'bg-emerald-600 text-white' : 'text-theme-text-muted hover:text-emerald-400 hover:bg-emerald-500/10',
+                      purple: isActive ? 'bg-purple-600 text-white' : 'text-theme-text-muted hover:text-purple-400 hover:bg-purple-500/10',
+                      amber: isActive ? 'bg-amber-600 text-white' : 'text-theme-text-muted hover:text-amber-400 hover:bg-amber-500/10'
                     };
                     return (
                       <button

@@ -62,15 +62,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   return (
-    <div className={`${isOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-[#0c0c0e] border-r border-gray-800 flex flex-col shrink-0 relative z-30 overflow-hidden`}>
+    <div className={`${isOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-theme-bg-primary border-r border-theme-border-primary flex flex-col shrink-0 relative z-30 overflow-hidden`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-[#0c0c0e] min-w-[320px]">
+      <div className="p-4 border-b border-theme-border-primary flex items-center justify-between bg-theme-bg-primary min-w-[320px]">
         <div className="flex items-center gap-2 font-bold text-lg tracking-tight">
-          <Cpu size={20} className="text-indigo-400" /><span className="text-white">NEURAL </span><span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">NEXUS</span>
+          <Cpu size={20} className="text-indigo-400" /><span className="text-theme-text-primary">NEURAL </span><span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">NEXUS</span>
         </div>
         <button 
           onClick={onClose} 
-          className="lg:hidden text-gray-400"
+          className="lg:hidden text-theme-text-muted"
         >
           <ChevronRight />
         </button>
@@ -80,32 +80,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 space-y-2 min-w-[320px]">
         <button 
           onClick={onCreateNew} 
-          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-all shadow-lg active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-[#0c0c0e]"
+          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-all shadow-lg active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-theme-bg-primary"
         >
           <Plus size={18} /><span>New Session</span>
         </button>
         
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-3 text-gray-600" />
+          <Search size={14} className="absolute left-3 top-3 text-theme-text-muted" />
           <input 
             type="text" 
             placeholder="Search history..." 
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-[#18181b] border border-gray-800 rounded-lg py-2 pl-9 pr-3 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
+            className="w-full bg-theme-bg-secondary border border-theme-border-primary rounded-lg py-2 pl-9 pr-3 text-xs text-theme-text-secondary focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
           />
         </div>
       </div>
 
       {/* Session List */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 custom-scrollbar min-w-[320px]">
-        <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2 px-2">History</div>
+        <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider mb-2 px-2">History</div>
         {filteredSessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+          <div className="flex flex-col items-center justify-center py-8 text-theme-text-muted">
             <SearchX size={32} className="mb-2 opacity-50" />
             <p className="text-sm">No sessions found</p>
             {searchQuery && (
-              <p className="text-xs text-gray-600 mt-1">Try a different search term</p>
+              <p className="text-xs text-theme-text-muted mt-1">Try a different search term</p>
             )}
           </div>
         ) : (
@@ -117,25 +117,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onKeyDown={(e) => e.key === 'Enter' && onSelectSession(session.id)}
               className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                 currentSessionId === session.id 
-                  ? 'bg-[#18181b] border-gray-700 text-white shadow-sm' 
-                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                  ? 'bg-theme-bg-secondary border-theme-border-secondary text-theme-text-primary shadow-sm' 
+                  : 'text-theme-text-muted hover:bg-theme-bg-secondary/50 hover:text-theme-text-secondary'
               }`}
             >
               <div className="flex items-center gap-3 overflow-hidden">
                 <MessageSquare 
                   size={16} 
-                  className={currentSessionId === session.id ? "text-indigo-400" : "text-gray-600"} 
+                  className={currentSessionId === session.id ? "text-indigo-400" : "text-theme-text-muted"} 
                 />
                 <div className="flex flex-col overflow-hidden">
                   <span className="truncate text-sm font-medium">{session.title}</span>
-                  <span className="text-[10px] text-gray-600 truncate">
+                  <span className="text-[10px] text-theme-text-muted truncate">
                     {formatRelativeDate(session.date)} • {session.model || 'No Model'}
                   </span>
                 </div>
               </div>
               <button 
                 onClick={(e) => onDeleteSession(e, session.id)} 
-                className="p-1.5 rounded-md text-gray-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                className="p-1.5 rounded-md text-theme-text-muted hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500/50"
                 title="Delete session"
               >
                 <Trash2 size={14} />
@@ -146,10 +146,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-800 bg-[#0a0a0c] space-y-3 min-w-[320px]">
+      <div className="p-4 border-t border-theme-border-primary bg-theme-bg-primary space-y-3 min-w-[320px]">
         <div>
           <div className="flex justify-between items-end mb-1">
-            <label className="text-[10px] uppercase font-bold text-gray-500">Active Model</label>
+            <label className="text-[10px] uppercase font-bold text-theme-text-muted">Active Model</label>
             <button 
               onClick={onOpenModelManager} 
               className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1"
@@ -161,12 +161,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <select 
               value={selectedModel} 
               onChange={(e) => onModelChange(e.target.value)} 
-              className="w-full bg-[#18181b] border border-gray-700 text-gray-200 text-sm rounded-lg p-2.5 pr-8 appearance-none focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all cursor-pointer"
+              className="w-full bg-theme-bg-secondary border border-theme-border-secondary text-theme-text-primary text-sm rounded-lg p-2.5 pr-8 appearance-none focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all cursor-pointer"
             >
               <option value="" disabled>Select a model...</option>
               {models.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
             </select>
-            <ChevronDown size={14} className="absolute right-3 top-3 text-gray-500 pointer-events-none" />
+            <ChevronDown size={14} className="absolute right-3 top-3 text-theme-text-muted pointer-events-none" />
           </div>
         </div>
 

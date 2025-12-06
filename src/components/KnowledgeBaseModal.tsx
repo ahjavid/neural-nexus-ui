@@ -194,17 +194,17 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-[#18181b] border border-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden h-[85vh] flex flex-col">
+      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-[#1f1f23]">
-          <h3 className="font-bold text-gray-200 flex items-center gap-2">
+        <div className="p-4 border-b border-theme-border-primary flex justify-between items-center bg-theme-bg-tertiary">
+          <h3 className="font-bold text-theme-text-primary flex items-center gap-2">
             <Database size={18} /> Knowledge Base
-            <span className="text-xs text-gray-500 font-normal">({knowledgeBase.length} entries)</span>
+            <span className="text-xs text-theme-text-muted font-normal">({knowledgeBase.length} entries)</span>
             <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
               <Brain size={10} /> Neurosymbolic AI
             </span>
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
+          <button onClick={onClose} className="text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
             <X size={20} />
           </button>
         </div>
@@ -213,15 +213,15 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {knowledgeBase.length === 0 && (
             <div className="text-center py-10">
-              <Database size={40} className="mx-auto text-gray-700 mb-3" />
-              <p className="text-gray-500 text-sm">No knowledge entries yet.</p>
-              <p className="text-gray-600 text-xs mt-1">Add documents, URLs, or text to get started.</p>
+              <Database size={40} className="mx-auto text-theme-text-muted mb-3" />
+              <p className="text-theme-text-secondary text-sm">No knowledge entries yet.</p>
+              <p className="text-theme-text-muted text-xs mt-1">Add documents, URLs, or text to get started.</p>
             </div>
           )}
           {knowledgeBase.map(k => (
             <div 
               key={k.id} 
-              className="bg-[#09090b] border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors"
+              className="bg-theme-bg-primary border border-theme-border-primary rounded-xl overflow-hidden hover:border-theme-border-secondary transition-colors"
             >
               <div className="p-3 flex items-start gap-3">
                 <button 
@@ -229,7 +229,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                   className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-all shrink-0 ${
                     activeKnowledgeIds.includes(k.id) 
                       ? 'bg-indigo-600 border-indigo-600' 
-                      : 'border-gray-600 hover:border-gray-400'
+                      : 'border-theme-border-secondary hover:border-theme-border-primary'
                   }`}
                 >
                   {activeKnowledgeIds.includes(k.id) && <Check size={12} className="text-white" />}
@@ -238,14 +238,14 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     {getSourceIcon(k)}
-                    <h4 className="font-medium text-sm text-gray-200 truncate">{k.title}</h4>
+                    <h4 className="font-medium text-sm text-theme-text-primary truncate">{k.title}</h4>
                     {/* Neurosymbolic badge */}
                     <span className="px-1.5 py-0.5 rounded text-[9px] bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-0.5">
                       <Brain size={9} /> AI
                     </span>
                   </div>
                   
-                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                  <div className="flex items-center gap-2 text-[10px] text-theme-text-muted">
                     {k.source === 'url' && k.url && (
                       <span className="truncate max-w-[200px]">{k.url}</span>
                     )}
@@ -264,7 +264,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                         {/* Entities */}
                         {info.entities.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            <span className="text-[10px] text-gray-500 flex items-center gap-0.5 mr-1">
+                            <span className="text-[10px] text-theme-text-muted flex items-center gap-0.5 mr-1">
                               <Tag size={10} /> Entities:
                             </span>
                             {info.entities.slice(0, 6).map((e, i) => (
@@ -277,7 +277,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                               </span>
                             ))}
                             {info.entities.length > 6 && (
-                              <span className="text-[9px] text-gray-500">+{info.entities.length - 6} more</span>
+                              <span className="text-[9px] text-theme-text-muted">+{info.entities.length - 6} more</span>
                             )}
                           </div>
                         )}
@@ -285,13 +285,13 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                         {/* Keywords */}
                         {info.keywords.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            <span className="text-[10px] text-gray-500 flex items-center gap-0.5 mr-1">
+                            <span className="text-[10px] text-theme-text-muted flex items-center gap-0.5 mr-1">
                               <Hash size={10} /> Keywords:
                             </span>
                             {info.keywords.slice(0, 8).map((kw, i) => (
                               <span 
                                 key={i} 
-                                className="px-1.5 py-0.5 rounded text-[9px] bg-gray-800 text-gray-400 border border-gray-700"
+                                className="px-1.5 py-0.5 rounded text-[9px] bg-theme-bg-tertiary text-theme-text-secondary border border-theme-border-secondary"
                               >
                                 {kw}
                               </span>
@@ -321,7 +321,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                   </div>
                   
                   {expandedId === k.id && (
-                    <pre className="mt-2 p-2 bg-[#18181b] rounded text-[11px] text-gray-400 max-h-40 overflow-auto whitespace-pre-wrap font-mono">
+                    <pre className="mt-2 p-2 bg-theme-bg-secondary rounded text-[11px] text-theme-text-secondary max-h-40 overflow-auto whitespace-pre-wrap font-mono">
                       {k.content.slice(0, 2000)}{k.content.length > 2000 ? '...' : ''}
                     </pre>
                   )}
@@ -329,7 +329,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                 
                 <button 
                   onClick={() => onDeleteKnowledge(k.id)} 
-                  className="text-gray-600 hover:text-red-400 shrink-0"
+                  className="text-theme-text-muted hover:text-red-400 shrink-0"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -339,13 +339,13 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
         </div>
         
         {/* Add Section */}
-        <div className="border-t border-gray-800 bg-[#1f1f23]">
+        <div className="border-t border-theme-border-primary bg-theme-bg-tertiary">
           {/* Mode Tabs */}
-          <div className="flex border-b border-gray-800">
+          <div className="flex border-b border-theme-border-primary">
             <button
               onClick={() => { setAddMode('text'); setError(null); }}
               className={`flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
-                addMode === 'text' ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-500/5' : 'text-gray-500 hover:text-gray-300'
+                addMode === 'text' ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-500/5' : 'text-theme-text-muted hover:text-theme-text-secondary'
               }`}
             >
               <FileText size={14} /> Text
@@ -353,7 +353,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
             <button
               onClick={() => { setAddMode('file'); setError(null); }}
               className={`flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
-                addMode === 'file' ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-500/5' : 'text-gray-500 hover:text-gray-300'
+                addMode === 'file' ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-500/5' : 'text-theme-text-muted hover:text-theme-text-secondary'
               }`}
             >
               <Upload size={14} /> File Upload
@@ -361,7 +361,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
             <button
               onClick={() => { setAddMode('url'); setError(null); }}
               className={`flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
-                addMode === 'url' ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-500/5' : 'text-gray-500 hover:text-gray-300'
+                addMode === 'url' ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-500/5' : 'text-theme-text-muted hover:text-theme-text-secondary'
               }`}
             >
               <Link size={14} /> URL
@@ -382,13 +382,13 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                 <input 
                   name="title" 
                   placeholder="Title (e.g., API Docs, Meeting Notes)" 
-                  className="w-full bg-[#09090b] border border-gray-700 rounded px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" 
+                  className="w-full bg-theme-bg-primary border border-theme-border-secondary rounded px-3 py-2 text-sm text-theme-text-primary focus:border-indigo-500 focus:outline-none" 
                   required 
                 />
                 <textarea 
                   name="content" 
                   placeholder="Paste your text content here..." 
-                  className="w-full bg-[#09090b] border border-gray-700 rounded px-3 py-2 text-sm h-24 resize-none focus:border-indigo-500 focus:outline-none" 
+                  className="w-full bg-theme-bg-primary border border-theme-border-secondary rounded px-3 py-2 text-sm text-theme-text-primary h-24 resize-none focus:border-indigo-500 focus:outline-none" 
                   required 
                 />
                 <Button type="submit" className="w-full">Add Text</Button>
@@ -399,17 +399,17 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
               <div className="space-y-3">
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-500/5 transition-colors"
+                  className="border-2 border-dashed border-theme-border-secondary rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-500/5 transition-colors"
                 >
                   {isLoading ? (
                     <Loader2 size={24} className="mx-auto text-indigo-400 animate-spin" />
                   ) : (
-                    <Upload size={24} className="mx-auto text-gray-500 mb-2" />
+                    <Upload size={24} className="mx-auto text-theme-text-muted mb-2" />
                   )}
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-theme-text-secondary">
                     {isLoading ? 'Processing...' : 'Click to upload files'}
                   </p>
-                  <p className="text-[10px] text-gray-600 mt-1">
+                  <p className="text-[10px] text-theme-text-muted mt-1">
                     PDF, DOCX, TXT, MD, JSON, CSV, and more
                   </p>
                 </div>
@@ -432,14 +432,14 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="https://example.com/page" 
-                    className="flex-1 bg-[#09090b] border border-gray-700 rounded px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" 
+                    className="flex-1 bg-theme-bg-primary border border-theme-border-secondary rounded px-3 py-2 text-sm text-theme-text-primary focus:border-indigo-500 focus:outline-none" 
                     required 
                   />
                   <Button type="submit" disabled={isLoading}>
                     {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Fetch'}
                   </Button>
                 </div>
-                <p className="text-[10px] text-gray-600">
+                <p className="text-[10px] text-theme-text-muted">
                   Enter a URL to fetch and extract its text content
                 </p>
               </form>

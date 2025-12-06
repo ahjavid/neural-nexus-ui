@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2 } from 'lucide-react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor } from 'lucide-react';
 import { Button } from './Button';
 import type { ModelParams } from '../types';
 import { formatBytes, getApiUrl } from '../utils/helpers';
 import { toolRegistry, setToolConfig, getToolConfigValue } from '../utils/tools';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -106,6 +107,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [toolsOpen, embeddingModels.length, fetchEmbeddingModels]);
 
+  const { theme, setTheme } = useTheme();
+
   if (!isOpen) return null;
 
   const updateParam = (key: keyof ModelParams, value: number) => {
@@ -114,26 +117,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-[#18181b] border border-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-[#1f1f23]">
-          <h3 className="font-bold text-gray-200 flex items-center gap-2">
+      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="p-4 border-b border-theme-border-primary flex justify-between items-center bg-theme-bg-tertiary">
+          <h3 className="font-bold text-theme-text-primary flex items-center gap-2">
             <Settings size={18} /> Engine Configuration
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
+          <button onClick={onClose} className="text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
             <X size={20} />
           </button>
         </div>
         
-        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
           {/* Endpoint */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Ollama Endpoint</label>
+            <label className="text-xs font-bold text-theme-text-muted uppercase tracking-wider">Ollama Endpoint</label>
             <div className="flex gap-2">
               <input 
                 type="text" 
                 value={endpoint} 
                 onChange={(e) => onEndpointChange(e.target.value)} 
-                className="flex-1 bg-[#09090b] border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono text-indigo-300 focus:border-indigo-500 focus:outline-none" 
+                className="flex-1 bg-theme-bg-primary border border-theme-border-secondary rounded-lg px-3 py-2 text-sm font-mono text-indigo-400 focus:border-indigo-500 focus:outline-none" 
               />
               <Button variant="secondary" onClick={onTestConnection} icon={RefreshCw} title="Test" />
             </div>
@@ -141,16 +144,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           
           {/* System Prompt */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">System Prompt</label>
+            <label className="text-xs font-bold text-theme-text-muted uppercase tracking-wider">System Prompt</label>
             <textarea 
               value={systemPrompt} 
               onChange={(e) => onSystemPromptChange(e.target.value)} 
-              className="w-full bg-[#09090b] border border-gray-700 rounded-lg p-3 text-sm text-gray-300 focus:border-indigo-500 focus:outline-none min-h-[100px] resize-y" 
+              className="w-full bg-theme-bg-primary border border-theme-border-secondary rounded-lg p-3 text-sm text-theme-text-secondary focus:border-indigo-500 focus:outline-none min-h-[100px] resize-y" 
             />
+          </div>
+
+          {/* Theme Selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-theme-text-muted uppercase tracking-wider">Theme</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setTheme('light')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
+                  theme === 'light'
+                    ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                    : 'bg-theme-bg-primary border-theme-border-secondary text-theme-text-muted hover:border-theme-border-primary hover:text-theme-text-secondary'
+                }`}
+              >
+                <Sun size={16} />
+                <span className="text-sm font-medium">Light</span>
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
+                  theme === 'dark'
+                    ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400'
+                    : 'bg-theme-bg-primary border-theme-border-secondary text-theme-text-muted hover:border-theme-border-primary hover:text-theme-text-secondary'
+                }`}
+              >
+                <Moon size={16} />
+                <span className="text-sm font-medium">Dark</span>
+              </button>
+              <button
+                onClick={() => setTheme('system')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
+                  theme === 'system'
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                    : 'bg-theme-bg-primary border-theme-border-secondary text-theme-text-muted hover:border-theme-border-primary hover:text-theme-text-secondary'
+                }`}
+              >
+                <Monitor size={16} />
+                <span className="text-sm font-medium">System</span>
+              </button>
+            </div>
           </div>
           
           {/* Advanced Toggle */}
-          <div className="pt-2 border-t border-gray-800">
+          <div className="pt-2 border-t border-theme-border-primary">
             <button 
               onClick={() => setAdvancedOpen(!advancedOpen)} 
               className="flex items-center gap-2 text-sm text-indigo-400 font-medium hover:text-indigo-300"
@@ -160,7 +203,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
           
           {/* Tools Toggle */}
-          <div className="pt-2 border-t border-gray-800">
+          <div className="pt-2 border-t border-theme-border-primary">
             <button 
               onClick={() => setToolsOpen(!toolsOpen)} 
               className="flex items-center gap-2 text-sm text-emerald-400 font-medium hover:text-emerald-300"
@@ -173,14 +216,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {toolsOpen && (
             <div className="space-y-4 pt-2">
               {/* Global Toggle */}
-              <div className="flex items-center justify-between p-3 bg-[#09090b] rounded-lg border border-gray-800">
+              <div className="flex items-center justify-between p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary">
                 <div>
-                  <div className="text-sm font-medium text-gray-200">Enable Tool Calling</div>
-                  <div className="text-[10px] text-gray-500 mt-0.5">Allow AI to use tools for enhanced capabilities</div>
+                  <div className="text-sm font-medium text-theme-text-primary">Enable Tool Calling</div>
+                  <div className="text-[10px] text-theme-text-muted mt-0.5">Allow AI to use tools for enhanced capabilities</div>
                 </div>
                 <button
                   onClick={() => onToolsEnabledChange(!toolsEnabled)}
-                  className={`transition-colors ${toolsEnabled ? 'text-emerald-400' : 'text-gray-600'}`}
+                  className={`transition-colors ${toolsEnabled ? 'text-emerald-400' : 'text-theme-text-muted'}`}
                 >
                   {toolsEnabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
                 </button>
@@ -188,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               
               {toolsEnabled && (
                 <>
-                  <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Available Tools</div>
+                  <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider">Available Tools</div>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                     {toolRegistry.getAllTools().map((tool) => (
                       <div
@@ -196,15 +239,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className={`p-3 rounded-lg border transition-colors ${
                           tool.enabled 
                             ? 'bg-emerald-500/10 border-emerald-500/30' 
-                            : 'bg-[#09090b] border-gray-800'
+                            : 'bg-theme-bg-primary border-theme-border-primary'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-mono text-gray-200 truncate">
+                            <div className="text-sm font-mono text-theme-text-primary truncate">
                               {tool.definition.function.name}
                             </div>
-                            <div className="text-[10px] text-gray-500 mt-1 line-clamp-2">
+                            <div className="text-[10px] text-theme-text-muted mt-1 line-clamp-2">
                               {tool.definition.function.description}
                             </div>
                           </div>
@@ -215,7 +258,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               forceUpdate({});
                             }}
                             className={`shrink-0 transition-colors ${
-                              tool.enabled ? 'text-emerald-400' : 'text-gray-600'
+                              tool.enabled ? 'text-emerald-400' : 'text-theme-text-muted'
                             }`}
                           >
                             {tool.enabled ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
@@ -225,20 +268,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     ))}
                   </div>
                   
-                  <div className="text-[10px] text-gray-600 bg-[#09090b] p-3 rounded-lg border border-gray-800">
-                    <strong className="text-gray-400">Note:</strong> Tool calling requires models that support function calling 
+                  <div className="text-[10px] text-theme-text-muted bg-theme-bg-primary p-3 rounded-lg border border-theme-border-primary">
+                    <strong className="text-theme-text-secondary">Note:</strong> Tool calling requires models that support function calling 
                     (e.g., qwen3, llama3.1+, mistral). When enabled, responses may be slightly slower as the AI 
                     decides whether to use tools.
                   </div>
                   
                   {/* API Keys and Settings */}
-                  <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mt-4">Tool Configuration</div>
+                  <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider mt-4">Tool Configuration</div>
                   
                   {/* Tavily API Key */}
-                  <div className="p-3 bg-[#09090b] rounded-lg border border-gray-800 space-y-2">
+                  <div className="p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary space-y-2">
                     <div className="flex items-center gap-2">
                       <Key size={14} className="text-amber-400" />
-                      <span className="text-xs font-medium text-gray-300">Tavily API Key (Enhanced Web Search)</span>
+                      <span className="text-xs font-medium text-theme-text-secondary">Tavily API Key (Enhanced Web Search)</span>
                     </div>
                     <div className="flex gap-2">
                       <input
@@ -250,31 +293,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setToolConfig('tavilyApiKey', value);
                         }}
                         placeholder="tvly-..."
-                        className="flex-1 bg-[#18181b] border border-gray-700 rounded px-2 py-1.5 text-xs font-mono text-gray-300 focus:border-amber-500 focus:outline-none"
+                        className="flex-1 bg-theme-bg-secondary border border-theme-border-secondary rounded px-2 py-1.5 text-xs font-mono text-theme-text-secondary focus:border-amber-500 focus:outline-none"
                       />
                       <button
                         onClick={() => setShowApiKey(!showApiKey)}
-                        className="px-2 text-xs text-gray-500 hover:text-gray-300"
+                        className="px-2 text-xs text-theme-text-muted hover:text-theme-text-secondary"
                       >
                         {showApiKey ? 'Hide' : 'Show'}
                       </button>
                     </div>
-                    <p className="text-[10px] text-gray-600">
+                    <p className="text-[10px] text-theme-text-muted">
                       Optional: Adds AI-powered web search. Without it, uses DuckDuckGo. Get free key at <a href="https://tavily.com" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">tavily.com</a>
                     </p>
                   </div>
                   
                   {/* Embedding Model */}
-                  <div className="p-3 bg-[#09090b] rounded-lg border border-gray-800 space-y-2">
+                  <div className="p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Database size={14} className="text-purple-400" />
-                        <span className="text-xs font-medium text-gray-300">Embedding Model (for RAG)</span>
+                        <span className="text-xs font-medium text-theme-text-secondary">Embedding Model (for RAG)</span>
                       </div>
                       <button
                         onClick={fetchEmbeddingModels}
                         disabled={loadingEmbeddingModels}
-                        className="text-gray-500 hover:text-purple-400 transition-colors disabled:opacity-50"
+                        className="text-theme-text-muted hover:text-purple-400 transition-colors disabled:opacity-50"
                         title="Refresh embedding models"
                       >
                         {loadingEmbeddingModels ? (
@@ -292,7 +335,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setEmbeddingModel(value);
                           setToolConfig('embeddingModel', value);
                         }}
-                        className="w-full bg-[#18181b] border border-gray-700 rounded px-2 py-1.5 text-xs font-mono text-gray-300 focus:border-purple-500 focus:outline-none appearance-none cursor-pointer pr-8"
+                        className="w-full bg-theme-bg-secondary border border-theme-border-secondary rounded px-2 py-1.5 text-xs font-mono text-theme-text-secondary focus:border-purple-500 focus:outline-none appearance-none cursor-pointer pr-8"
                       >
                         {embeddingModels.length === 0 && (
                           <option value={embeddingModel}>{embeddingModel}</option>
@@ -303,9 +346,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </option>
                         ))}
                       </select>
-                      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-text-muted pointer-events-none" />
                     </div>
-                    <p className="text-[10px] text-gray-600">
+                    <p className="text-[10px] text-theme-text-muted">
                       {embeddingModels.length > 0 
                         ? `${embeddingModels.length} embedding model${embeddingModels.length > 1 ? 's' : ''} available`
                         : 'Click refresh to load embedding models from Ollama'
@@ -321,11 +364,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {advancedOpen && (
             <div className="space-y-4 pt-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
               {/* Sampling Parameters */}
-              <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Sampling</div>
+              <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider">Sampling</div>
               
               <div>
                 <div className="flex justify-between mb-1">
-                  <label className="text-xs text-gray-400">Temperature</label>
+                  <label className="text-xs text-theme-text-secondary">Temperature</label>
                   <span className="text-xs text-indigo-400 font-mono">{params.temperature}</span>
                 </div>
                 <input 
@@ -335,14 +378,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   step="0.1" 
                   value={params.temperature} 
                   onChange={(e) => updateParam('temperature', parseFloat(e.target.value))} 
-                  className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                  className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">Creativity level. Higher = more random.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">Creativity level. Higher = more random.</p>
               </div>
               
               <div>
                 <div className="flex justify-between mb-1">
-                  <label className="text-xs text-gray-400">Top P</label>
+                  <label className="text-xs text-theme-text-secondary">Top P</label>
                   <span className="text-xs text-indigo-400 font-mono">{params.top_p}</span>
                 </div>
                 <input 
@@ -352,14 +395,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   step="0.05" 
                   value={params.top_p} 
                   onChange={(e) => updateParam('top_p', parseFloat(e.target.value))} 
-                  className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                  className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">Nucleus sampling threshold.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">Nucleus sampling threshold.</p>
               </div>
               
               <div>
                 <div className="flex justify-between mb-1">
-                  <label className="text-xs text-gray-400">Top K</label>
+                  <label className="text-xs text-theme-text-secondary">Top K</label>
                   <span className="text-xs text-indigo-400 font-mono">{params.top_k}</span>
                 </div>
                 <input 
@@ -369,14 +412,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   step="1" 
                   value={params.top_k} 
                   onChange={(e) => updateParam('top_k', parseInt(e.target.value))} 
-                  className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                  className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">Limits vocabulary to top K tokens.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">Limits vocabulary to top K tokens.</p>
               </div>
               
               <div>
                 <div className="flex justify-between mb-1">
-                  <label className="text-xs text-gray-400">Repeat Penalty</label>
+                  <label className="text-xs text-theme-text-secondary">Repeat Penalty</label>
                   <span className="text-xs text-indigo-400 font-mono">{params.repeat_penalty}</span>
                 </div>
                 <input 
@@ -386,17 +429,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   step="0.05" 
                   value={params.repeat_penalty} 
                   onChange={(e) => updateParam('repeat_penalty', parseFloat(e.target.value))} 
-                  className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                  className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">Penalizes repeated tokens.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">Penalizes repeated tokens.</p>
               </div>
               
               {/* Generation Limits */}
-              <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider pt-2 border-t border-gray-800">Generation</div>
+              <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider pt-2 border-t border-theme-border-primary">Generation</div>
               
               <div>
                 <div className="flex justify-between mb-1">
-                  <label className="text-xs text-gray-400">Max Tokens (num_predict)</label>
+                  <label className="text-xs text-theme-text-secondary">Max Tokens (num_predict)</label>
                   <span className="text-xs text-indigo-400 font-mono">{params.num_predict}</span>
                 </div>
                 <input 
@@ -406,14 +449,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   step="128" 
                   value={params.num_predict} 
                   onChange={(e) => updateParam('num_predict', parseInt(e.target.value))} 
-                  className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                  className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">Maximum tokens to generate.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">Maximum tokens to generate.</p>
               </div>
               
               <div>
                 <div className="flex justify-between mb-1">
-                  <label className="text-xs text-gray-400">Context Length (num_ctx)</label>
+                  <label className="text-xs text-theme-text-secondary">Context Length (num_ctx)</label>
                   <span className="text-xs text-indigo-400 font-mono">{params.num_ctx}</span>
                 </div>
                 <input 
@@ -423,28 +466,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   step="512" 
                   value={params.num_ctx} 
                   onChange={(e) => updateParam('num_ctx', parseInt(e.target.value))} 
-                  className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                  className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">Context window size.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">Context window size.</p>
               </div>
               
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Seed</label>
+                <label className="text-xs text-theme-text-secondary block mb-1">Seed</label>
                 <input 
                   type="number" 
                   value={params.seed} 
                   onChange={(e) => updateParam('seed', parseInt(e.target.value) || -1)} 
-                  className="w-full bg-[#09090b] border border-gray-700 rounded px-3 py-1.5 text-sm font-mono text-gray-300 focus:border-indigo-500 focus:outline-none" 
+                  className="w-full bg-theme-bg-primary border border-theme-border-secondary rounded px-3 py-1.5 text-sm font-mono text-theme-text-secondary focus:border-indigo-500 focus:outline-none" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">-1 for random. Fixed seed = reproducible output.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">-1 for random. Fixed seed = reproducible output.</p>
               </div>
               
               {/* Mirostat */}
-              <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider pt-2 border-t border-gray-800">Mirostat</div>
+              <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider pt-2 border-t border-theme-border-primary">Mirostat</div>
               
               <div>
                 <div className="flex justify-between mb-1">
-                  <label className="text-xs text-gray-400">Mirostat Mode</label>
+                  <label className="text-xs text-theme-text-secondary">Mirostat Mode</label>
                   <span className="text-xs text-indigo-400 font-mono">{params.mirostat === 0 ? 'Off' : `v${params.mirostat}`}</span>
                 </div>
                 <input 
@@ -454,16 +497,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   step="1" 
                   value={params.mirostat} 
                   onChange={(e) => updateParam('mirostat', parseInt(e.target.value))} 
-                  className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                  className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">0=off, 1=Mirostat, 2=Mirostat 2.0</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">0=off, 1=Mirostat, 2=Mirostat 2.0</p>
               </div>
               
               {params.mirostat > 0 && (
                 <>
                   <div>
                     <div className="flex justify-between mb-1">
-                      <label className="text-xs text-gray-400">Mirostat Tau</label>
+                      <label className="text-xs text-theme-text-secondary">Mirostat Tau</label>
                       <span className="text-xs text-indigo-400 font-mono">{params.mirostat_tau}</span>
                     </div>
                     <input 
@@ -473,13 +516,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       step="0.1" 
                       value={params.mirostat_tau} 
                       onChange={(e) => updateParam('mirostat_tau', parseFloat(e.target.value))} 
-                      className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                      className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                     />
-                    <p className="text-[10px] text-gray-600 mt-1">Target entropy (5.0 default).</p>
+                    <p className="text-[10px] text-theme-text-muted mt-1">Target entropy (5.0 default).</p>
                   </div>
                   <div>
                     <div className="flex justify-between mb-1">
-                      <label className="text-xs text-gray-400">Mirostat Eta</label>
+                      <label className="text-xs text-theme-text-secondary">Mirostat Eta</label>
                       <span className="text-xs text-indigo-400 font-mono">{params.mirostat_eta}</span>
                     </div>
                     <input 
@@ -489,51 +532,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       step="0.01" 
                       value={params.mirostat_eta} 
                       onChange={(e) => updateParam('mirostat_eta', parseFloat(e.target.value))} 
-                      className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                      className="w-full h-1 bg-theme-bg-tertiary rounded-lg appearance-none cursor-pointer accent-indigo-500" 
                     />
-                    <p className="text-[10px] text-gray-600 mt-1">Learning rate (0.1 default).</p>
+                    <p className="text-[10px] text-theme-text-muted mt-1">Learning rate (0.1 default).</p>
                   </div>
                 </>
               )}
               
               {/* Hardware */}
-              <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider pt-2 border-t border-gray-800">Hardware</div>
+              <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider pt-2 border-t border-theme-border-primary">Hardware</div>
               
               <div>
-                <label className="text-xs text-gray-400 block mb-1">GPU Layers (num_gpu)</label>
+                <label className="text-xs text-theme-text-secondary block mb-1">GPU Layers (num_gpu)</label>
                 <input 
                   type="number" 
                   value={params.num_gpu} 
                   onChange={(e) => updateParam('num_gpu', parseInt(e.target.value) || -1)} 
-                  className="w-full bg-[#09090b] border border-gray-700 rounded px-3 py-1.5 text-sm font-mono text-gray-300 focus:border-indigo-500 focus:outline-none" 
+                  className="w-full bg-theme-bg-primary border border-theme-border-secondary rounded px-3 py-1.5 text-sm font-mono text-theme-text-secondary focus:border-indigo-500 focus:outline-none" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">-1 = auto, 0 = CPU only.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">-1 = auto, 0 = CPU only.</p>
               </div>
               
               <div>
-                <label className="text-xs text-gray-400 block mb-1">CPU Threads (num_thread)</label>
+                <label className="text-xs text-theme-text-secondary block mb-1">CPU Threads (num_thread)</label>
                 <input 
                   type="number" 
                   value={params.num_thread} 
                   onChange={(e) => updateParam('num_thread', parseInt(e.target.value) || 0)} 
-                  className="w-full bg-[#09090b] border border-gray-700 rounded px-3 py-1.5 text-sm font-mono text-gray-300 focus:border-indigo-500 focus:outline-none" 
+                  className="w-full bg-theme-bg-primary border border-theme-border-secondary rounded px-3 py-1.5 text-sm font-mono text-theme-text-secondary focus:border-indigo-500 focus:outline-none" 
                 />
-                <p className="text-[10px] text-gray-600 mt-1">0 = auto detect.</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">0 = auto detect.</p>
               </div>
               
               {/* Storage Info */}
-              <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider pt-2 border-t border-gray-800">Storage</div>
+              <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider pt-2 border-t border-theme-border-primary">Storage</div>
               
-              <div className="bg-[#09090b] rounded-lg p-3 space-y-2">
+              <div className="bg-theme-bg-primary rounded-lg p-3 space-y-2">
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">Used</span>
+                  <span className="text-theme-text-secondary">Used</span>
                   <span className="text-indigo-400 font-mono">{formatBytes(storageInfo.used)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">Available</span>
+                  <span className="text-theme-text-secondary">Available</span>
                   <span className="text-green-400 font-mono">{formatBytes(storageInfo.quota)}</span>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-1.5 mt-2">
+                <div className="w-full bg-theme-bg-tertiary rounded-full h-1.5 mt-2">
                   <div 
                     className={`h-1.5 rounded-full transition-all ${
                       parseFloat(storageInfo.percent) > 80 ? 'bg-red-500' : 
@@ -542,7 +585,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{ width: `${Math.min(parseFloat(storageInfo.percent), 100)}%` }}
                   ></div>
                 </div>
-                <p className="text-[10px] text-gray-600 mt-1">Using IndexedDB for unlimited storage (browser-managed).</p>
+                <p className="text-[10px] text-theme-text-muted mt-1">Using IndexedDB for unlimited storage (browser-managed).</p>
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={onClearChats}
@@ -552,7 +595,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                   <button
                     onClick={onRefreshStorage}
-                    className="px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded border border-gray-700 transition-colors"
+                    className="px-3 py-1.5 text-xs text-theme-text-secondary hover:text-theme-text-primary hover:bg-theme-bg-tertiary rounded border border-theme-border-secondary transition-colors"
                   >
                     Refresh
                   </button>
@@ -562,7 +605,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Reset Button */}
               <button 
                 onClick={() => onParamsChange(defaultParams)}
-                className="w-full mt-2 py-2 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded border border-gray-700 transition-colors"
+                className="w-full mt-2 py-2 text-xs text-theme-text-secondary hover:text-theme-text-primary hover:bg-theme-bg-tertiary rounded border border-theme-border-secondary transition-colors"
               >
                 Reset to Defaults
               </button>
@@ -570,7 +613,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
         
-        <div className="p-4 border-t border-gray-800 bg-[#1f1f23] flex justify-end">
+        <div className="p-4 border-t border-theme-border-primary bg-theme-bg-tertiary flex justify-end">
           <Button onClick={onClose}>Done</Button>
         </div>
       </div>

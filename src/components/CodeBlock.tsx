@@ -18,8 +18,8 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language }) => {
   };
 
   return (
-    <div className="relative group rounded-lg overflow-hidden my-4 border border-gray-700 bg-[#0d1117] shadow-lg w-full">
-      <div className="flex justify-between items-center px-4 py-2 bg-gray-800/50 border-b border-gray-700 text-xs text-gray-400 select-none">
+    <div className="relative group rounded-lg overflow-hidden my-4 border border-theme-border-secondary bg-[#0d1117] dark:bg-[#0d1117] shadow-lg w-full">
+      <div className="flex justify-between items-center px-4 py-2 bg-[#161b22] border-b border-[#30363d] text-xs text-gray-400 select-none">
         <div className="flex gap-2 items-center">
           <span className="uppercase font-mono font-bold text-indigo-400">{language || 'text'}</span>
           {isPreviewable && (

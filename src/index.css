@@ -11,6 +11,66 @@
 /* Fix viewport height on mobile/laptops with browser UI */
 :root {
   --vh: 1vh;
+  
+  /* Theme CSS Variables - Dark (default) */
+  --bg-primary: #09090b;
+  --bg-secondary: #18181b;
+  --bg-tertiary: #1f1f23;
+  --bg-elevated: #27272a;
+  --bg-hover: #3f3f46;
+  
+  --border-primary: #27272a;
+  --border-secondary: #3f3f46;
+  --border-muted: #18181b;
+  
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-inverse: #09090b;
+  
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #3f3f46;
+  --scrollbar-thumb-hover: #52525b;
+  
+  /* Accent colors (same for both themes) */
+  --accent-indigo: #6366f1;
+  --accent-purple: #a855f7;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-red: #ef4444;
+}
+
+/* Light theme - Professionally designed palette */
+:root.light {
+  /* 
+   * Surface Hierarchy (elevation system):
+   * bg-primary:   Page canvas - warm off-white
+   * bg-secondary: Elevated surfaces (modals, cards, AI messages)  
+   * bg-tertiary:  Headers, sidebar - subtle differentiation
+   * bg-elevated:  Input backgrounds, wells, user messages
+   * bg-hover:     Interactive hover states
+   */
+  --bg-primary: #f8f9fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f3f5;
+  --bg-elevated: #e9ecef;
+  --bg-hover: #dee2e6;
+  
+  /* Borders - soft but visible */
+  --border-primary: #dee2e6;
+  --border-secondary: #ced4da;
+  --border-muted: #e9ecef;
+  
+  /* Text - charcoal base, WCAG AA compliant */
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-muted: #6c757d;
+  --text-inverse: #ffffff;
+  
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #ced4da;
+  --scrollbar-thumb-hover: #adb5bd;
 }
 
 html, body, #root {
@@ -38,16 +98,16 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Hide scrollbar */
@@ -66,11 +126,11 @@ body {
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--border-primary);
   border-radius: 2px;
 }
 
@@ -202,4 +262,34 @@ body {
 .stagger-3 { animation: stagger-fade-in 0.5s ease-out 0.3s both; }
 .stagger-4 { animation: stagger-fade-in 0.5s ease-out 0.4s both; }
 .stagger-5 { animation: stagger-fade-in 0.5s ease-out 0.5s both; }
+
+/* Light theme specific improvements */
+:root.light {
+  /* Add subtle shadows for depth in light mode */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+}
+
+/* Light theme modal shadows */
+:root.light .shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+/* Light theme focus states */
+:root.light input:focus,
+:root.light textarea:focus,
+:root.light select:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+/* Light theme scrollbar */
+:root.light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #ced4da;
+}
+
+:root.light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd;
+}
 

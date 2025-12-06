@@ -92,7 +92,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="px-4 md:px-6 py-3 bg-[#09090b]">
+    <div className="px-4 md:px-6 py-3 bg-theme-bg-primary">
       <div className="max-w-4xl mx-auto relative">
         {/* File Error Alert */}
         {fileError && (
@@ -110,19 +110,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <div className={`absolute bottom-full left-0 ${fileError ? 'mb-16' : 'mb-4'} flex gap-2 overflow-x-auto max-w-full p-2 animate-in slide-in-from-bottom-2`}>
             {/* Processing files indicator */}
             {processingFiles.map((name, i) => (
-              <div key={`processing-${i}`} className="bg-[#18181b] border border-indigo-500/50 rounded-lg p-2 flex items-center gap-3 min-w-[140px] shadow-xl">
+              <div key={`processing-${i}`} className="bg-theme-bg-secondary border border-indigo-500/50 rounded-lg p-2 flex items-center gap-3 min-w-[140px] shadow-xl">
                 <div className="h-8 w-8 bg-indigo-900/50 rounded flex items-center justify-center">
                   <Loader2 size={16} className="text-indigo-400 animate-spin" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-300 truncate max-w-[100px]">{name}</span>
+                  <span className="text-xs text-theme-text-secondary truncate max-w-[100px]">{name}</span>
                   <span className="text-[10px] text-indigo-400">Processing...</span>
                 </div>
               </div>
             ))}
             {/* Attached files */}
             {attachments.map((att, i) => (
-              <div key={i} className="bg-[#18181b] border border-gray-700 rounded-lg p-2 flex items-center gap-3 min-w-[120px] shadow-xl">
+              <div key={i} className="bg-theme-bg-secondary border border-theme-border-secondary rounded-lg p-2 flex items-center gap-3 min-w-[120px] shadow-xl">
                 {att.type === 'image' ? (
                   <img src={att.content} alt="Preview" className="h-8 w-8 object-cover rounded" />
                 ) : (
@@ -131,8 +131,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   </div>
                 )}
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-300 truncate max-w-[100px]">{att.name}</span>
-                  <span className="text-[10px] text-gray-500">
+                  <span className="text-xs text-theme-text-secondary truncate max-w-[100px]">{att.name}</span>
+                  <span className="text-[10px] text-theme-text-muted">
                     {att.docInfo || formatFileSize(att.size)}
                   </span>
                 </div>
@@ -149,13 +149,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
         {/* Slash Commands */}
         {slashCmdsVisible && (
-          <div className="absolute bottom-full left-0 mb-2 w-48 bg-[#18181b] border border-gray-700 rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase">Commands</div>
+          <div className="absolute bottom-full left-0 mb-2 w-48 bg-theme-bg-secondary border border-theme-border-secondary rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="px-3 py-2 text-[10px] font-bold text-theme-text-muted uppercase">Commands</div>
             {['/clear', '/reset', '/save', '/new'].map(cmd => (
               <button 
                 key={cmd} 
                 onClick={() => onExecuteSlashCommand(cmd)} 
-                className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-indigo-600 hover:text-white transition-colors font-mono"
+                className="w-full text-left px-4 py-2 text-sm text-theme-text-secondary hover:bg-indigo-600 hover:text-white transition-colors font-mono"
               >
                 {cmd}
               </button>
@@ -164,8 +164,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         )}
 
         {/* Input Container */}
-        <div className={`relative bg-[#18181b] rounded-xl flex items-end p-2 border transition-colors shadow-2xl ${
-          streaming ? 'border-indigo-500/30' : 'border-gray-700 hover:border-gray-600'
+        <div className={`relative bg-theme-bg-secondary rounded-xl flex items-end p-2 border transition-colors shadow-2xl ${
+          streaming ? 'border-indigo-500/30' : 'border-theme-border-secondary hover:border-theme-border-primary'
         }`}>
           <div className="pb-1 pl-1 flex flex-col gap-1">
             <input 
@@ -179,7 +179,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <button 
               onClick={() => fileInputRef.current?.click()} 
               disabled={streaming || !selectedModel} 
-              className="p-2 text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
+              className="p-2 text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
               title="Attach"
             >
               <Plus size={20} />
@@ -190,7 +190,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               className={`p-2 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                 isListening 
                   ? 'text-red-400 bg-red-500/10 animate-pulse' 
-                  : 'text-gray-500 hover:text-green-400 hover:bg-green-500/10'
+                  : 'text-theme-text-muted hover:text-green-400 hover:bg-green-500/10'
               }`} 
               title="Voice"
             >
@@ -204,7 +204,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={isListening ? "Listening..." : "Message... (Type / for commands)"}
             disabled={!selectedModel || streaming}
-            className="w-full bg-transparent text-gray-200 p-3 max-h-40 min-h-[50px] resize-none focus:outline-none focus:ring-0 placeholder-gray-600 disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
+            className="w-full bg-transparent text-theme-text-primary p-3 max-h-40 min-h-[50px] resize-none focus:outline-none focus:ring-0 placeholder-theme-text-muted disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
             rows={1}
             onInput={handleTextareaInput}
           />
@@ -230,7 +230,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 className={`p-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                   (input.trim() || attachments.length > 0) 
                     ? 'bg-indigo-600 text-white shadow-lg' 
-                    : 'bg-gray-800 text-gray-500'
+                    : 'bg-theme-bg-tertiary text-theme-text-muted'
                 }`}
               >
                 <Send size={18} />
@@ -240,7 +240,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </div>
         
         <div className="flex justify-center mt-3">
-          <span className="text-[10px] text-gray-600 font-medium">
+          <span className="text-[10px] text-theme-text-muted font-medium">
             Drag & Drop files • <kbd className="font-sans">Shift+Enter</kbd> new line
           </span>
         </div>

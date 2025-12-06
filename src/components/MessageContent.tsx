@@ -13,7 +13,7 @@ const formatInlineText = (text: string): React.ReactNode => {
     // Inline code
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
-        <code key={idx} className="bg-gray-800 text-indigo-300 px-1.5 py-0.5 rounded text-sm font-mono border border-gray-700/50">
+        <code key={idx} className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 px-1.5 py-0.5 rounded text-sm font-mono border border-indigo-500/20">
           {part.slice(1, -1)}
         </code>
       );
@@ -23,13 +23,13 @@ const formatInlineText = (text: string): React.ReactNode => {
     const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
     return boldParts.map((bPart, bIdx) => {
       if (bPart.startsWith('**') && bPart.endsWith('**')) {
-        return <strong key={`${idx}-${bIdx}`} className="text-white font-semibold">{bPart.slice(2, -2)}</strong>;
+        return <strong key={`${idx}-${bIdx}`} className="text-theme-text-primary font-semibold">{bPart.slice(2, -2)}</strong>;
       }
       // Process italic
       const italicParts = bPart.split(/(\*[^*]+\*)/g);
       return italicParts.map((iPart, iIdx) => {
         if (iPart.startsWith('*') && iPart.endsWith('*') && iPart.length > 2) {
-          return <em key={`${idx}-${bIdx}-${iIdx}`} className="italic text-gray-300">{iPart.slice(1, -1)}</em>;
+          return <em key={`${idx}-${bIdx}-${iIdx}`} className="italic text-theme-text-secondary">{iPart.slice(1, -1)}</em>;
         }
         return iPart;
       });
@@ -70,7 +70,7 @@ export const MessageContent: React.FC<MessageContentProps> = ({ content }) => {
             </span>
           </button>
           {reasoningOpen && (
-            <div className="p-4 text-sm text-gray-400 font-mono bg-black/20 border-t border-purple-500/20 whitespace-pre-wrap leading-relaxed">
+            <div className="p-4 text-sm text-theme-text-secondary font-mono bg-black/10 border-t border-purple-500/20 whitespace-pre-wrap leading-relaxed">
               {reasoning}
             </div>
           )}
@@ -101,21 +101,21 @@ export const MessageContent: React.FC<MessageContentProps> = ({ content }) => {
               
               // Headers
               if (trimmedLine.startsWith('### ')) {
-                return <h3 key={lineIdx} className="text-lg font-bold text-white mt-4 mb-2">{trimmedLine.slice(4)}</h3>;
+                return <h3 key={lineIdx} className="text-lg font-bold text-theme-text-primary mt-4 mb-2">{trimmedLine.slice(4)}</h3>;
               }
               if (trimmedLine.startsWith('## ')) {
-                return <h2 key={lineIdx} className="text-xl font-bold text-white mt-4 mb-2">{trimmedLine.slice(3)}</h2>;
+                return <h2 key={lineIdx} className="text-xl font-bold text-theme-text-primary mt-4 mb-2">{trimmedLine.slice(3)}</h2>;
               }
               if (trimmedLine.startsWith('# ')) {
-                return <h1 key={lineIdx} className="text-2xl font-bold text-white mt-4 mb-2">{trimmedLine.slice(2)}</h1>;
+                return <h1 key={lineIdx} className="text-2xl font-bold text-theme-text-primary mt-4 mb-2">{trimmedLine.slice(2)}</h1>;
               }
               
               // Bullet points
               if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
                 return (
                   <div key={lineIdx} className="flex gap-2 ml-2">
-                    <span className="text-indigo-400 mt-1">•</span>
-                    <span className="text-gray-300 flex-1">{formatInlineText(trimmedLine.slice(2))}</span>
+                    <span className="text-indigo-500 mt-1">•</span>
+                    <span className="text-theme-text-secondary flex-1">{formatInlineText(trimmedLine.slice(2))}</span>
                   </div>
                 );
               }
@@ -125,15 +125,15 @@ export const MessageContent: React.FC<MessageContentProps> = ({ content }) => {
               if (numberedMatch) {
                 return (
                   <div key={lineIdx} className="flex gap-2 ml-2">
-                    <span className="text-indigo-400 font-mono text-sm min-w-[1.5rem]">{numberedMatch[1]}.</span>
-                    <span className="text-gray-300 flex-1">{formatInlineText(numberedMatch[2])}</span>
+                    <span className="text-indigo-500 font-mono text-sm min-w-[1.5rem]">{numberedMatch[1]}.</span>
+                    <span className="text-theme-text-secondary flex-1">{formatInlineText(numberedMatch[2])}</span>
                   </div>
                 );
               }
               
               // Regular paragraph
               return (
-                <p key={lineIdx} className="text-gray-300 leading-relaxed">
+                <p key={lineIdx} className="text-theme-text-secondary leading-relaxed">
                   {formatInlineText(line)}
                 </p>
               );
