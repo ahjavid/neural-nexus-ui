@@ -381,13 +381,18 @@ export default function App() {
       
       if (response.ok) {
         const data = await response.json();
-        setModelCapabilities(data.capabilities || []);
+        const caps = Array.isArray(data.capabilities) ? data.capabilities : [];
+        console.log(`Model ${modelName} capabilities:`, caps);
+        setModelCapabilities(caps);
       } else {
-        setModelCapabilities([]);
+        console.warn(`Failed to get capabilities for ${modelName}: HTTP ${response.status}`);
+        // If API fails, assume tools might be supported (let runtime determine)
+        setModelCapabilities(['unknown']);
       }
     } catch (err) {
       console.warn('Failed to check model capabilities:', err);
-      setModelCapabilities([]);
+      // If API fails, assume tools might be supported (let runtime determine)
+      setModelCapabilities(['unknown']);
     } finally {
       setCapabilitiesChecked(true);
     }
@@ -857,9 +862,10 @@ export default function App() {
     abortControllerRef.current = new AbortController();
 
     try {
-      // Get enabled tools only if tools are globally enabled AND model supports tools
+      // Get enabled tools only if tools are globally enabled AND model supports tools (or unknown)
       const modelSupportsTools = modelCapabilities.includes('tools');
-      const tools = (toolsEnabled && modelSupportsTools) ? toolRegistry.getToolDefinitions() : [];
+      const capabilitiesUnknown = modelCapabilities.includes('unknown') || !capabilitiesChecked;
+      const tools = (toolsEnabled && (modelSupportsTools || capabilitiesUnknown)) ? toolRegistry.getToolDefinitions() : [];
       
       // Build chat messages for API
       let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }> = [
@@ -867,9 +873,9 @@ export default function App() {
         ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
       ];
 
-      // If tools are enabled but model doesn't support them, show notice and continue without tools
-      // Only show notice if we've actually checked capabilities (not just empty from initial state)
-      if (toolsEnabled && capabilitiesChecked && !modelSupportsTools && toolRegistry.getToolDefinitions().length > 0) {
+      // If tools are enabled but model confirmed to NOT support them, show notice and continue without tools
+      // Only show notice if we've confirmed capabilities (not unknown)
+      if (toolsEnabled && capabilitiesChecked && !modelSupportsTools && !capabilitiesUnknown && toolRegistry.getToolDefinitions().length > 0) {
         const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
         await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
         return;
