@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from './Button';
 import type { ModelParams } from '../types';
-import { formatBytes } from '../utils/helpers';
+import { formatBytes, getApiUrl } from '../utils/helpers';
 import { toolRegistry, setToolConfig, getToolConfigValue } from '../utils/tools';
 
 interface SettingsModalProps {
@@ -59,6 +59,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tavilyApiKey, setTavilyApiKey] = useState(getToolConfigValue('tavilyApiKey') || '');
   const [embeddingModel, setEmbeddingModel] = useState(getToolConfigValue('embeddingModel') || 'mxbai-embed-large:latest');
   const [showApiKey, setShowApiKey] = useState(false);
+  const [embeddingModels, setEmbeddingModels] = useState<string[]>([]);
+  const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
+
+  // Fetch embedding models from Ollama
+  const fetchEmbeddingModels = useCallback(async () => {
+    setLoadingEmbeddingModels(true);
+    try {
+      // First get all models
+      const tagsRes = await fetch(getApiUrl(endpoint, '/api/tags'));
+      if (!tagsRes.ok) throw new Error('Failed to fetch models');
+      const tagsData = await tagsRes.json();
+      const allModels = tagsData.models || [];
+
+      // Check each model's capabilities to find embedding models
+      const embeddingModelsList: string[] = [];
+      for (const model of allModels) {
+        try {
+          const showRes = await fetch(getApiUrl(endpoint, '/api/show'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: model.name })
+          });
+          if (showRes.ok) {
+            const showData = await showRes.json();
+            if (showData.capabilities?.includes('embedding')) {
+              embeddingModelsList.push(model.name);
+            }
+          }
+        } catch {
+          // Skip models that fail to load
+        }
+      }
+      setEmbeddingModels(embeddingModelsList);
+    } catch (err) {
+      console.error('Failed to fetch embedding models:', err);
+    } finally {
+      setLoadingEmbeddingModels(false);
+    }
+  }, [endpoint]);
+
+  // Fetch embedding models when tools section is opened
+  useEffect(() => {
+    if (toolsOpen && embeddingModels.length === 0) {
+      fetchEmbeddingModels();
+    }
+  }, [toolsOpen, embeddingModels.length, fetchEmbeddingModels]);
 
   if (!isOpen) return null;
 
@@ -220,23 +266,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   
                   {/* Embedding Model */}
                   <div className="p-3 bg-[#09090b] rounded-lg border border-gray-800 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Database size={14} className="text-purple-400" />
-                      <span className="text-xs font-medium text-gray-300">Embedding Model (for RAG)</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Database size={14} className="text-purple-400" />
+                        <span className="text-xs font-medium text-gray-300">Embedding Model (for RAG)</span>
+                      </div>
+                      <button
+                        onClick={fetchEmbeddingModels}
+                        disabled={loadingEmbeddingModels}
+                        className="text-gray-500 hover:text-purple-400 transition-colors disabled:opacity-50"
+                        title="Refresh embedding models"
+                      >
+                        {loadingEmbeddingModels ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <RefreshCw size={14} />
+                        )}
+                      </button>
                     </div>
-                    <input
-                      type="text"
-                      value={embeddingModel}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setEmbeddingModel(value);
-                        setToolConfig('embeddingModel', value);
-                      }}
-                      placeholder="mxbai-embed-large:latest"
-                      className="w-full bg-[#18181b] border border-gray-700 rounded px-2 py-1.5 text-xs font-mono text-gray-300 focus:border-purple-500 focus:outline-none"
-                    />
+                    <div className="relative">
+                      <select
+                        value={embeddingModel}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setEmbeddingModel(value);
+                          setToolConfig('embeddingModel', value);
+                        }}
+                        className="w-full bg-[#18181b] border border-gray-700 rounded px-2 py-1.5 text-xs font-mono text-gray-300 focus:border-purple-500 focus:outline-none appearance-none cursor-pointer pr-8"
+                      >
+                        {embeddingModels.length === 0 && (
+                          <option value={embeddingModel}>{embeddingModel}</option>
+                        )}
+                        {embeddingModels.map((model) => (
+                          <option key={model} value={model}>
+                            {model}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                    </div>
                     <p className="text-[10px] text-gray-600">
-                      Ollama embedding model for semantic search. Examples: mxbai-embed-large, bge-m3, nomic-embed-text
+                      {embeddingModels.length > 0 
+                        ? `${embeddingModels.length} embedding model${embeddingModels.length > 1 ? 's' : ''} available`
+                        : 'Click refresh to load embedding models from Ollama'
+                      }
                     </p>
                   </div>
                 </>
