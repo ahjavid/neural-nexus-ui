@@ -8,6 +8,7 @@
  */
 
 import type { ToolDefinition, ToolHandler, RegisteredTool, ToolCall } from '../types';
+import { getApiUrl } from './helpers';
 
 // ============================================
 // Configuration Store (for API keys)
@@ -485,7 +486,7 @@ const cosineSimilarity = (a: number[], b: number[]): number => {
  * Get embedding from Ollama
  */
 const getEmbedding = async (text: string, model: string, endpoint: string): Promise<number[]> => {
-  const response = await fetch(`${endpoint}/api/embeddings`, {
+  const response = await fetch(getApiUrl(endpoint, '/api/embeddings'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

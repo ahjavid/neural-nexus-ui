@@ -52,3 +52,25 @@ export const DEFAULT_PARAMS = {
   num_gpu: -1,
   num_thread: 0
 } as const;
+
+/**
+ * Get the API URL for Ollama requests.
+ * In development mode with localhost endpoint, uses Vite proxy to avoid CORS issues.
+ * In production or with remote endpoints, uses the full URL directly.
+ */
+export const getApiUrl = (endpoint: string, path: string): string => {
+  const isDev = import.meta.env.DEV;
+  const isLocalhost = endpoint === 'http://localhost:11434' || 
+                      endpoint === 'http://127.0.0.1:11434' ||
+                      endpoint === 'localhost:11434' ||
+                      endpoint === '127.0.0.1:11434';
+  
+  // In dev mode with localhost, use Vite proxy
+  if (isDev && isLocalhost) {
+    return path.startsWith('/') ? path : `/${path}`;
+  }
+  
+  // Otherwise use full URL
+  const baseUrl = endpoint.startsWith('http') ? endpoint : `http://${endpoint}`;
+  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+};

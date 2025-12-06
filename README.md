@@ -330,7 +330,7 @@ Tool calling requires models that support function calling:
 | Large Context | May slow down with very long conversations | Start new chat or reduce `num_ctx` |
 | Image Support | Only works with multimodal models (llava, etc.) | Use a vision-capable model |
 | Token Limit | Responses truncated at `num_predict` tokens | Increase in Advanced Settings |
-| CORS Errors | Browser blocks Ollama API | App uses Vite proxy (dev mode) |
+| CORS Errors | Browser blocks Ollama API | Automatic in dev mode (Vite proxy) |
 | Tool Calling | Only works with compatible models | Use qwen3, llama3.1+, or mistral |
 
 ## 🐛 Reporting Issues

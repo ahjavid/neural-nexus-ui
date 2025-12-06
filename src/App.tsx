@@ -21,7 +21,7 @@ const HelpModal = lazy(() => import('./components/HelpModal'));
 // Utils
 import { dbManager, migrateFromLocalStorage } from './utils/storage';
 import { processDocument } from './utils/documents';
-import { formatFileSize } from './utils/helpers';
+import { formatFileSize, getApiUrl } from './utils/helpers';
 import { toolRegistry, clearEmbeddingCache } from './utils/tools';
 
 // Types
@@ -322,7 +322,7 @@ export default function App() {
   const checkConnection = async () => {
     setConnectionStatus('checking');
     try {
-      const res = await fetch(`${endpoint}/api/tags`);
+      const res = await fetch(getApiUrl(endpoint, '/api/tags'));
       if (!res.ok) throw new Error('Failed to connect');
       const data = await res.json();
       setModels(data.models || []);
@@ -377,7 +377,7 @@ export default function App() {
   // Check model capabilities via /api/show
   const checkModelCapabilities = async (modelName: string) => {
     try {
-      const response = await fetch(`${endpoint}/api/show`, {
+      const response = await fetch(getApiUrl(endpoint, '/api/show'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: modelName })
@@ -494,7 +494,7 @@ export default function App() {
   const pullModel = async (modelName: string) => {
     setPullProgress({ status: 'starting', completed: 0, total: 100 });
     try {
-      const response = await fetch(`${endpoint}/api/pull`, {
+      const response = await fetch(getApiUrl(endpoint, '/api/pull'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: modelName, stream: true })
@@ -711,7 +711,7 @@ export default function App() {
       ...(params.num_thread > 0 && { num_thread: params.num_thread })
     };
 
-    const response = await fetch(`${endpoint}/api/chat`, {
+    const response = await fetch(getApiUrl(endpoint, '/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -761,7 +761,7 @@ export default function App() {
       ...(params.num_thread > 0 && { num_thread: params.num_thread })
     };
 
-    const response = await fetch(`${endpoint}/api/chat`, {
+    const response = await fetch(getApiUrl(endpoint, '/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
