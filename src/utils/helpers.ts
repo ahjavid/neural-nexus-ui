@@ -6,6 +6,30 @@ export const formatBytes = (bytes: number): string => {
   return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 };
 
+// Format date to relative time (Today, Yesterday, X days ago, or date)
+export const formatRelativeDate = (timestamp: number): string => {
+  const now = new Date();
+  const date = new Date(timestamp);
+  
+  // Reset to start of day for comparison
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  
+  const diffTime = today.getTime() - targetDay.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+  }
+  
+  // For older dates, show the actual date
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
 // Format file size (alias for consistency)
 export const formatFileSize = formatBytes;
 

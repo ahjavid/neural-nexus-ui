@@ -179,7 +179,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <button 
               onClick={() => fileInputRef.current?.click()} 
               disabled={streaming || !selectedModel} 
-              className="p-2 text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50" 
+              className="p-2 text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
               title="Attach"
             >
               <Plus size={20} />
@@ -187,7 +187,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <button 
               onClick={onToggleListening} 
               disabled={streaming || !selectedModel} 
-              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+              className={`p-2 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                 isListening 
                   ? 'text-red-400 bg-red-500/10 animate-pulse' 
                   : 'text-gray-500 hover:text-green-400 hover:bg-green-500/10'
@@ -204,7 +204,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={isListening ? "Listening..." : "Message... (Type / for commands)"}
             disabled={!selectedModel || streaming}
-            className="w-full bg-transparent text-gray-200 p-3 max-h-40 min-h-[50px] resize-none focus:outline-none placeholder-gray-600 disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
+            className="w-full bg-transparent text-gray-200 p-3 max-h-40 min-h-[50px] resize-none focus:outline-none focus:ring-0 placeholder-gray-600 disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
             rows={1}
             onInput={handleTextareaInput}
           />
@@ -219,7 +219,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             {streaming ? (
               <button 
                 onClick={onStop} 
-                className="p-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
+                className="p-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500/50"
               >
                 <Square size={18} fill="currentColor" />
               </button>
@@ -227,7 +227,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <button 
                 onClick={onSend} 
                 disabled={(!input.trim() && attachments.length === 0) || !selectedModel} 
-                className={`p-2.5 rounded-lg transition-all duration-200 ${
+                className={`p-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                   (input.trim() || attachments.length > 0) 
                     ? 'bg-indigo-600 text-white shadow-lg' 
                     : 'bg-gray-800 text-gray-500'

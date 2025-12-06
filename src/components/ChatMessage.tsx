@@ -1,5 +1,5 @@
-import React from 'react';
-import { Terminal, Clock, Zap, Volume2, VolumeX, FileCode, FileText, FileSpreadsheet } from 'lucide-react';
+import React, { useState } from 'react';
+import { Terminal, Clock, Zap, Volume2, VolumeX, FileCode, FileText, FileSpreadsheet, Copy, Check } from 'lucide-react';
 import { MessageContent } from './MessageContent';
 import type { Message } from '../types';
 import { formatBytes } from '../utils/helpers';
@@ -18,6 +18,17 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onSpeakMessage
 }) => {
   const isUser = message.role === 'user';
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   return (
     <div className={`flex gap-4 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'} group/msg`}>
@@ -95,12 +106,22 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         
         {/* Assistant message actions */}
         {!isUser && message.content !== '' && (
-          <div className="flex items-center gap-3 mt-2 ml-1">
+          <div className="flex items-center gap-3 mt-2 ml-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+            <button 
+              onClick={handleCopy}
+              className={`text-gray-500 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-1 focus:ring-offset-[#09090b] rounded ${
+                copied ? 'text-emerald-400' : ''
+              }`}
+              title={copied ? 'Copied!' : 'Copy message'}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
             <button 
               onClick={() => onSpeakMessage(message.content, index)} 
-              className={`text-gray-500 hover:text-indigo-400 transition-colors ${
+              className={`text-gray-500 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-1 focus:ring-offset-[#09090b] rounded ${
                 speakingMsgId === index ? 'text-indigo-400 animate-pulse' : ''
               }`}
+              title={speakingMsgId === index ? 'Stop speaking' : 'Read aloud'}
             >
               {speakingMsgId === index ? <VolumeX size={14} /> : <Volume2 size={14} />}
             </button>
