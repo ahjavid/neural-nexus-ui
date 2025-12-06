@@ -698,7 +698,8 @@ export default function App() {
     chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
     startTime: number,
     updatedMessages: Message[],
-    isVoice: boolean
+    isVoice: boolean,
+    contentPrefix = ''
   ) => {
     const options = {
       temperature: params.temperature,
@@ -734,11 +735,11 @@ export default function App() {
     const decoder = new TextDecoder();
 
     updateCurrentSession({
-      messages: [...updatedMessages, { role: 'assistant', content: '', timing: '0', tokenSpeed: '0' }]
+      messages: [...updatedMessages, { role: 'assistant', content: contentPrefix, timing: '0', tokenSpeed: '0' }]
     });
 
     let tokens = 0;
-    let finalContent = '';
+    let finalContent = contentPrefix;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -909,14 +910,17 @@ export default function App() {
           }
         }
         
-        // If tools weren't supported, fall back to streaming
+        // If tools weren't supported, fall back to streaming with a notice
         if (!toolsSupported) {
           // Reset chat messages (remove any tool-related messages)
           chatMessages = [
             { role: 'system', content: systemPrompt },
             ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
           ];
-          await streamChat(chatMessages, startTime, updatedMessages, isVoice);
+          
+          // Stream the response with a notice about tool limitation
+          const toolNotice = '⚠️ **Note:** This model does not support tool calling. Continuing without tools...\n\n---\n\n';
+          await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
         }
       } else {
         // No tools, use streaming as before
