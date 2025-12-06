@@ -1292,72 +1292,67 @@ export default function App() {
         )}
 
         {/* Chat Feed */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+        <div className={`flex-1 min-h-0 px-4 md:px-6 py-2 space-y-6 ${messages.length > 0 ? 'overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent' : 'overflow-hidden'}`}>
           {messages.length === 0 ? (
-            <div className="min-h-full flex flex-col items-center justify-center text-gray-500 py-8">
+            <div className="h-full flex flex-col items-center justify-center text-gray-500">
               {/* Animated Logo */}
-              <div className="relative w-20 h-20 mb-6 flex-shrink-0">
+              <div className="relative w-16 h-16 mb-3 flex-shrink-0">
                 {/* Outer rotating ring */}
                 <div className="absolute inset-0 rounded-full border-2 border-dashed border-indigo-500/40 animate-[spin_8s_linear_infinite]"></div>
                 {/* Inner static circle with icon */}
-                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-indigo-900/50 to-purple-900/50 flex items-center justify-center border border-indigo-500/20 shadow-2xl">
-                  <Zap size={28} className="text-indigo-400" />
+                <div className="absolute inset-1.5 rounded-full bg-gradient-to-br from-indigo-900/50 to-purple-900/50 flex items-center justify-center border border-indigo-500/20 shadow-2xl">
+                  <Zap size={24} className="text-indigo-400" />
                 </div>
               </div>
-              <h3 className="text-2xl font-thin tracking-tight text-white mb-1">NEURAL <span className="font-bold text-indigo-400">NEXUS</span></h3>
-              <p className="text-xs text-gray-500 mb-6 tracking-widest uppercase">Omni Class Interface</p>
+              <h3 className="text-xl font-thin tracking-tight text-white mb-0.5">NEURAL <span className="font-bold text-indigo-400">NEXUS</span></h3>
+              <p className="text-[10px] text-gray-500 mb-4 tracking-widest uppercase">Omni Class Interface</p>
               
-              {/* Persona Selection Cards */}
-              <div className="mb-8 w-full max-w-2xl">
-                <p className="text-xs text-gray-600 uppercase tracking-wider mb-3 text-center">Select a Persona</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {Object.entries(personaConfigs).map(([id, config]) => {
-                    const Icon = config.icon;
-                    const isActive = persona === id;
-                    const colorStyles = {
-                      indigo: { border: 'border-indigo-500', bg: 'bg-indigo-500/10', text: 'text-indigo-400' },
-                      emerald: { border: 'border-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
-                      purple: { border: 'border-purple-500', bg: 'bg-purple-500/10', text: 'text-purple-400' },
-                      amber: { border: 'border-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-400' }
-                    };
-                    const style = colorStyles[config.color];
-                    return (
-                      <button
-                        key={id}
-                        onClick={() => switchPersona(id)}
-                        className={`p-4 rounded-xl border transition-all text-left ${
-                          isActive 
-                            ? `${style.border} ${style.bg}` 
-                            : 'border-gray-800 bg-[#18181b]/50 hover:border-gray-700 hover:bg-[#18181b]'
-                        }`}
-                      >
-                        <Icon size={20} className={isActive ? style.text : 'text-gray-500'} />
-                        <h4 className={`text-sm font-bold mt-2 ${isActive ? style.text : 'text-gray-300'}`}>{config.name}</h4>
-                        <p className="text-[10px] text-gray-500 mt-1">Temp: {config.params.temperature}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              
-              {/* Features Grid */}
-              <div className="grid grid-cols-2 gap-3 max-w-md w-full">
-                 {[
-                   { icon: Phone, title: "Voice Mode", desc: "Hands-free chat", action: startVoiceMode },
-                   { icon: Database, title: "Knowledge", desc: "Context injection", action: () => setKnowledgeOpen(true) },
-                   { icon: Layout, title: "Zen Mode", desc: "Focus view", action: () => setZenMode(true) },
-                   { icon: Settings, title: "Settings", desc: "Configure", action: () => setSettingsOpen(true) }
-                 ].map((item, i) => (
-                    <button 
-                      key={i} 
-                      onClick={item.action}
-                      className="p-4 bg-[#18181b]/30 border border-gray-800 hover:border-gray-700 rounded-xl transition-all hover:bg-[#18181b] group text-left"
+              {/* Persona Selection - Horizontal Row */}
+              <div className="flex items-center gap-2 mb-4 flex-wrap justify-center">
+                {Object.entries(personaConfigs).map(([id, config]) => {
+                  const Icon = config.icon;
+                  const isActive = persona === id;
+                  const colors = {
+                    indigo: { active: 'bg-indigo-600 text-white border-indigo-500', inactive: 'text-indigo-400 hover:bg-indigo-500/10' },
+                    emerald: { active: 'bg-emerald-600 text-white border-emerald-500', inactive: 'text-emerald-400 hover:bg-emerald-500/10' },
+                    purple: { active: 'bg-purple-600 text-white border-purple-500', inactive: 'text-purple-400 hover:bg-purple-500/10' },
+                    amber: { active: 'bg-amber-600 text-white border-amber-500', inactive: 'text-amber-400 hover:bg-amber-500/10' }
+                  };
+                  const style = colors[config.color];
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => switchPersona(id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all text-sm ${
+                        isActive 
+                          ? style.active 
+                          : `border-gray-700 bg-[#18181b]/50 ${style.inactive}`
+                      }`}
                     >
-                        <item.icon size={18} className="text-gray-600 group-hover:text-indigo-400 mb-2 transition-colors" />
-                        <h4 className="text-xs font-bold text-gray-400 group-hover:text-gray-200">{item.title}</h4>
-                        <p className="text-[10px] text-gray-600">{item.desc}</p>
+                      <Icon size={14} />
+                      <span className="font-medium">{config.name}</span>
                     </button>
-                 ))}
+                  );
+                })}
+              </div>
+              
+              {/* Quick Actions - Inline */}
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                {[
+                  { icon: Phone, title: "Voice", action: startVoiceMode },
+                  { icon: Database, title: "Knowledge", action: () => setKnowledgeOpen(true) },
+                  { icon: Layout, title: "Zen", action: () => setZenMode(true) },
+                  { icon: Settings, title: "Settings", action: () => setSettingsOpen(true) }
+                ].map((item, i) => (
+                  <button 
+                    key={i} 
+                    onClick={item.action}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-[#18181b]/50 border border-gray-800 hover:border-gray-600 rounded-full transition-all hover:bg-[#18181b] group text-xs text-gray-400 hover:text-gray-200"
+                  >
+                    <item.icon size={11} className="text-gray-500 group-hover:text-indigo-400 transition-colors" />
+                    {item.title}
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
@@ -1430,7 +1425,7 @@ export default function App() {
         </div>
 
         {/* Input Area */}
-        <div className="p-4 md:p-6 bg-[#09090b]">
+        <div className="px-4 md:px-6 py-3 bg-[#09090b]">
           <div className="max-w-4xl mx-auto relative">
              {/* File Error Alert */}
              {fileError && (
