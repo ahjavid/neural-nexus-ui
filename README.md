@@ -35,7 +35,7 @@ A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI m
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/neural-nexus-ui.git
+git clone https://github.com/ahjavid/neural-nexus-ui.git
 cd neural-nexus-ui
 
 # Install dependencies
