@@ -13,5 +13,23 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core
+          'vendor-react': ['react', 'react-dom'],
+          // Document processing libraries (large) - split separately
+          'vendor-pdf': ['pdfjs-dist'],
+          'vendor-xlsx': ['xlsx'],
+          'vendor-mammoth': ['mammoth'],
+          // Icons library
+          'vendor-icons': ['lucide-react'],
+        }
+      }
+    },
+    // Increase warning limit since document processing libs are inherently large
+    chunkSizeWarningLimit: 600
   }
 })

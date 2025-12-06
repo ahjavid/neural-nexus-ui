@@ -102,14 +102,72 @@ The app connects to Ollama at `http://localhost:11434` by default. You can chang
 ```
 neural-nexus-ui/
 ├── src/
-│   ├── App.jsx        # Main application component
-│   ├── main.jsx       # React entry point
-│   └── index.css      # Global styles & Tailwind
-├── index.html         # HTML template
-├── vite.config.js     # Vite configuration (includes proxy)
-├── tailwind.config.js # Tailwind configuration
-├── postcss.config.js  # PostCSS configuration
-└── package.json       # Dependencies & scripts
+│   ├── components/       # React components (TypeScript)
+│   │   ├── Button.tsx
+│   │   ├── ChatInput.tsx
+│   │   ├── ChatMessage.tsx
+│   │   ├── CodeBlock.tsx
+│   │   ├── HelpModal.tsx
+│   │   ├── KnowledgeBaseModal.tsx
+│   │   ├── MessageContent.tsx
+│   │   ├── ModelManagerModal.tsx
+│   │   ├── PersonaSelector.tsx
+│   │   ├── SettingsModal.tsx
+│   │   ├── Sidebar.tsx
+│   │   ├── VoiceModeOverlay.tsx
+│   │   ├── WelcomeScreen.tsx
+│   │   └── index.ts
+│   ├── utils/            # Utility functions
+│   │   ├── documents.ts  # PDF/Word/Excel processing
+│   │   ├── helpers.ts    # Formatting helpers
+│   │   ├── storage.ts    # IndexedDB manager
+│   │   └── index.ts
+│   ├── types/            # TypeScript types
+│   │   └── index.ts
+│   ├── __tests__/        # Test files
+│   │   ├── Button.test.tsx
+│   │   ├── helpers.test.ts
+│   │   ├── HelpModal.test.tsx
+│   │   └── setup.ts
+│   ├── App.jsx           # Main application component
+│   ├── main.jsx          # React entry point
+│   └── index.css         # Global styles & Tailwind
+├── .nvmrc                # Node version (20)
+├── .env.example          # Environment template
+├── index.html            # HTML template
+├── tsconfig.json         # TypeScript configuration
+├── vitest.config.ts      # Test configuration
+├── vite.config.js        # Vite configuration (includes proxy)
+├── tailwind.config.js    # Tailwind configuration
+├── postcss.config.js     # PostCSS configuration
+└── package.json          # Dependencies & scripts
+```
+
+## 🧪 Development
+
+### Available Scripts
+
+```bash
+# Start development server
+npm run dev
+
+# Run tests
+npm test
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+
+# Type check
+npm run typecheck
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
 ## 🔧 Advanced Model Parameters
