@@ -266,77 +266,172 @@ const VoiceModeOverlay = ({ isOpen, onClose, isSpeaking, isListening, transcript
   );
 };
 
-// --- Storage Utilities ---
-const getStorageUsage = () => {
-  let total = 0;
-  for (let key in localStorage) {
-    if (localStorage.hasOwnProperty(key)) {
-      total += localStorage.getItem(key).length * 2; // UTF-16 = 2 bytes per char
+// --- IndexedDB Storage Manager ---
+// Provides ~50MB-unlimited storage vs localStorage's 5MB limit
+
+const DB_NAME = 'neural-nexus-db';
+const DB_VERSION = 1;
+
+const dbManager = {
+  db: null,
+  
+  async init() {
+    if (this.db) return this.db;
+    
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      
+      request.onerror = () => reject(request.error);
+      
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve(this.db);
+      };
+      
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        
+        // Sessions store - each session is a separate entry for efficient updates
+        if (!db.objectStoreNames.contains('sessions')) {
+          db.createObjectStore('sessions', { keyPath: 'id' });
+        }
+        
+        // Knowledge base store
+        if (!db.objectStoreNames.contains('knowledge')) {
+          db.createObjectStore('knowledge', { keyPath: 'id' });
+        }
+        
+        // Settings store (key-value)
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', { keyPath: 'key' });
+        }
+      };
+    });
+  },
+  
+  async getAll(storeName) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  
+  async get(storeName, key) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  
+  async put(storeName, item) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.put(item);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  
+  async putAll(storeName, items) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      items.forEach(item => store.put(item));
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  },
+  
+  async delete(storeName, key) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.delete(key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  },
+  
+  async clear(storeName) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  },
+  
+  // Get storage estimate
+  async getStorageEstimate() {
+    if (navigator.storage && navigator.storage.estimate) {
+      const estimate = await navigator.storage.estimate();
+      return {
+        used: estimate.usage || 0,
+        quota: estimate.quota || 0,
+        percent: estimate.quota ? ((estimate.usage / estimate.quota) * 100).toFixed(1) : 0
+      };
     }
+    return { used: 0, quota: 0, percent: 0 };
   }
-  return total;
 };
 
+// Storage helper functions
 const formatBytes = (bytes) => {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 };
 
-const safeLocalStorageSet = (key, value) => {
+// Migrate from localStorage to IndexedDB (one-time)
+const migrateFromLocalStorage = async () => {
   try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch (e) {
-    if (e.name === 'QuotaExceededError' || e.code === 22) {
-      console.error('localStorage quota exceeded');
-      return false;
+    const oldSessions = localStorage.getItem('ollama_sessions');
+    const oldKnowledge = localStorage.getItem('ollama_knowledge');
+    
+    if (oldSessions) {
+      const sessions = JSON.parse(oldSessions);
+      await dbManager.putAll('sessions', sessions);
+      localStorage.removeItem('ollama_sessions');
+      console.log('Migrated sessions to IndexedDB');
     }
-    throw e;
+    
+    if (oldKnowledge) {
+      const knowledge = JSON.parse(oldKnowledge);
+      await dbManager.putAll('knowledge', knowledge);
+      localStorage.removeItem('ollama_knowledge');
+      console.log('Migrated knowledge to IndexedDB');
+    }
+  } catch (e) {
+    console.error('Migration error:', e);
   }
-};
-
-// Strip large content from messages before saving to localStorage
-const prepareSessionsForStorage = (sessions) => {
-  return sessions.map(session => ({
-    ...session,
-    messages: session.messages.map(msg => ({
-      ...msg,
-      // Keep only metadata for attachments, not the full content
-      attachments: msg.attachments?.map(att => ({
-        type: att.type,
-        name: att.name,
-        size: att.size,
-        ext: att.ext
-        // Intentionally omit 'content' to save space
-      })),
-      // Don't store base64 images in localStorage (they're only for the API call)
-      images: undefined
-    }))
-  }));
 };
 
 // --- Main Application ---
 
 export default function App() {
-  // State: Core
-  const [sessions, setSessions] = useState(() => {
-    try {
-      const saved = localStorage.getItem('ollama_sessions');
-      return saved ? JSON.parse(saved) : [{ id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() }];
-    } catch (e) {
-      console.error('Failed to load sessions from localStorage:', e);
-      return [{ id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() }];
-    }
-  });
-  const [currentSessionId, setCurrentSessionId] = useState(sessions[0].id);
-  const [storageWarning, setStorageWarning] = useState(null);
+  // State: Core - Start with empty/default, load from IndexedDB async
+  const [sessions, setSessions] = useState([{ id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() }]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [storageInfo, setStorageInfo] = useState({ used: 0, quota: 0, percent: 0 });
+  const [isLoading, setIsLoading] = useState(true);
 
   // State: Knowledge Base
-  const [knowledgeBase, setKnowledgeBase] = useState(() => {
-    const saved = localStorage.getItem('ollama_knowledge');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [knowledgeBase, setKnowledgeBase] = useState([]);
   const [activeKnowledgeIds, setActiveKnowledgeIds] = useState([]);
 
   // State: UI
@@ -386,28 +481,109 @@ export default function App() {
   const fileInputRef = useRef(null);
   const recognitionRef = useRef(null);
   const lastAssistantResponseRef = useRef('');
+  const saveTimeoutRef = useRef(null);
 
   // --- Effects ---
 
-  useEffect(() => { 
-    const stripped = prepareSessionsForStorage(sessions);
-    const success = safeLocalStorageSet('ollama_sessions', JSON.stringify(stripped));
-    if (!success) {
-      setStorageWarning('Storage full! Old sessions may not be saved. Consider clearing chat history.');
-    } else {
-      const usage = getStorageUsage();
-      if (usage > 4 * 1024 * 1024) { // Warn at 4MB (limit is ~5MB)
-        setStorageWarning(`Storage nearly full (${formatBytes(usage)} / 5 MB)`);
-      } else {
-        setStorageWarning(null);
+  // Initialize: Load data from IndexedDB on mount
+  useEffect(() => {
+    const initStorage = async () => {
+      try {
+        await dbManager.init();
+        
+        // Migrate from localStorage if needed (one-time)
+        await migrateFromLocalStorage();
+        
+        // Load sessions
+        const savedSessions = await dbManager.getAll('sessions');
+        if (savedSessions && savedSessions.length > 0) {
+          // Sort by date descending
+          savedSessions.sort((a, b) => (b.date || 0) - (a.date || 0));
+          setSessions(savedSessions);
+          setCurrentSessionId(savedSessions[0].id);
+        } else {
+          // Create default session
+          const defaultSession = { id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() };
+          setSessions([defaultSession]);
+          setCurrentSessionId(defaultSession.id);
+          await dbManager.put('sessions', defaultSession);
+        }
+        
+        // Load knowledge base
+        const savedKnowledge = await dbManager.getAll('knowledge');
+        if (savedKnowledge) {
+          setKnowledgeBase(savedKnowledge);
+        }
+        
+        // Get storage info
+        const info = await dbManager.getStorageEstimate();
+        setStorageInfo(info);
+        
+      } catch (e) {
+        console.error('Failed to initialize storage:', e);
+        // Fallback to defaults
+        const defaultSession = { id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() };
+        setSessions([defaultSession]);
+        setCurrentSessionId(defaultSession.id);
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, [sessions]);
+    };
+    
+    initStorage();
+  }, []);
+
+  // Save sessions to IndexedDB (debounced)
   useEffect(() => { 
-    const success = safeLocalStorageSet('ollama_knowledge', JSON.stringify(knowledgeBase));
-    if (!success) setStorageWarning('Storage full! Knowledge base may not be saved.');
-  }, [knowledgeBase]);
+    if (isLoading) return; // Don't save during initial load
+    
+    // Debounce saves to avoid too many writes
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Save each session individually for efficiency
+        for (const session of sessions) {
+          await dbManager.put('sessions', session);
+        }
+        
+        // Update storage info
+        const info = await dbManager.getStorageEstimate();
+        setStorageInfo(info);
+      } catch (e) {
+        console.error('Failed to save sessions:', e);
+      }
+    }, 500); // 500ms debounce
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [sessions, isLoading]);
+
+  // Save knowledge base to IndexedDB
+  useEffect(() => { 
+    if (isLoading) return;
+    
+    const saveKnowledge = async () => {
+      try {
+        // Clear and re-add all (simpler for array management)
+        await dbManager.clear('knowledge');
+        await dbManager.putAll('knowledge', knowledgeBase);
+      } catch (e) {
+        console.error('Failed to save knowledge:', e);
+      }
+    };
+    
+    saveKnowledge();
+  }, [knowledgeBase, isLoading]);
+
+  // Save endpoint to localStorage (small, fast access needed)
   useEffect(() => { localStorage.setItem('ollama_endpoint', endpoint); }, [endpoint]);
+  
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [sessions, currentSessionId, streaming]);
   useEffect(() => { checkConnection(); }, []);
 
@@ -478,13 +654,23 @@ export default function App() {
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
-  const deleteSession = (e, id) => {
+  const deleteSession = async (e, id) => {
     e.stopPropagation();
+    
+    // Delete from IndexedDB
+    try {
+      await dbManager.delete('sessions', id);
+    } catch (err) {
+      console.error('Failed to delete session from DB:', err);
+    }
+    
     const newSessions = sessions.filter(s => s.id !== id);
     if (newSessions.length === 0) {
         const fresh = { id: Date.now(), title: 'New Chat', messages: [], model: models[0]?.name || '', date: Date.now() };
         setSessions([fresh]);
         setCurrentSessionId(fresh.id);
+        // Save the new session
+        dbManager.put('sessions', fresh).catch(console.error);
     } else {
         setSessions(newSessions);
         if (currentSessionId === id) setCurrentSessionId(newSessions[0].id);
@@ -955,6 +1141,18 @@ export default function App() {
     setKnowledgeBase([...knowledgeBase, { id: Date.now(), title, content }]);
   };
 
+  // Loading screen while IndexedDB initializes
+  if (isLoading) {
+    return (
+      <div className="flex h-screen bg-[#09090b] text-gray-200 items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-400">Loading Neural Nexus...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[#09090b] text-gray-200 font-sans overflow-hidden selection:bg-indigo-500/30">
       
@@ -1214,15 +1412,6 @@ export default function App() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Storage Warning Banner */}
-        {storageWarning && (
-          <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2 flex items-center justify-center gap-3">
-            <AlertTriangle size={16} className="text-yellow-400" />
-            <span className="text-sm text-yellow-300">{storageWarning}</span>
-            <button onClick={() => setStorageWarning(null)} className="text-yellow-400 hover:text-yellow-300 ml-2"><X size={14} /></button>
-          </div>
-        )}
-
         {/* Input Area */}
         <div className="p-4 md:p-6 bg-[#09090b]">
           <div className="max-w-4xl mx-auto relative">
@@ -1450,6 +1639,54 @@ export default function App() {
                      <label className="text-xs text-gray-400 block mb-1">CPU Threads (num_thread)</label>
                      <input type="number" value={params.num_thread} onChange={(e) => setParams({...params, num_thread: parseInt(e.target.value) || 0})} className="w-full bg-[#09090b] border border-gray-700 rounded px-3 py-1.5 text-sm font-mono text-gray-300 focus:border-indigo-500 focus:outline-none" />
                      <p className="text-[10px] text-gray-600 mt-1">0 = auto detect.</p>
+                   </div>
+                   
+                   {/* Storage Info */}
+                   <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider pt-2 border-t border-gray-800">Storage</div>
+                   
+                   <div className="bg-[#09090b] rounded-lg p-3 space-y-2">
+                     <div className="flex justify-between text-xs">
+                       <span className="text-gray-400">Used</span>
+                       <span className="text-indigo-400 font-mono">{formatBytes(storageInfo.used)}</span>
+                     </div>
+                     <div className="flex justify-between text-xs">
+                       <span className="text-gray-400">Available</span>
+                       <span className="text-green-400 font-mono">{formatBytes(storageInfo.quota)}</span>
+                     </div>
+                     <div className="w-full bg-gray-700 rounded-full h-1.5 mt-2">
+                       <div 
+                         className={`h-1.5 rounded-full transition-all ${parseFloat(storageInfo.percent) > 80 ? 'bg-red-500' : parseFloat(storageInfo.percent) > 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                         style={{ width: `${Math.min(storageInfo.percent, 100)}%` }}
+                       ></div>
+                     </div>
+                     <p className="text-[10px] text-gray-600 mt-1">Using IndexedDB for unlimited storage (browser-managed).</p>
+                     <div className="flex gap-2 mt-2">
+                       <button
+                         onClick={async () => {
+                           if (confirm('Clear all chat history? This cannot be undone.')) {
+                             await dbManager.clear('sessions');
+                             const fresh = { id: Date.now(), title: 'New Chat', messages: [], model: '', date: Date.now() };
+                             setSessions([fresh]);
+                             setCurrentSessionId(fresh.id);
+                             await dbManager.put('sessions', fresh);
+                             const info = await dbManager.getStorageEstimate();
+                             setStorageInfo(info);
+                           }
+                         }}
+                         className="flex-1 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded border border-red-500/30 transition-colors"
+                       >
+                         Clear All Chats
+                       </button>
+                       <button
+                         onClick={async () => {
+                           const info = await dbManager.getStorageEstimate();
+                           setStorageInfo(info);
+                         }}
+                         className="px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded border border-gray-700 transition-colors"
+                       >
+                         Refresh
+                       </button>
+                     </div>
                    </div>
                    
                    {/* Reset Button */}
