@@ -99,6 +99,7 @@ const randomNumber: ToolHandler = (args) => {
 
 /**
  * Get information about a URL (fetch and summarize)
+ * Uses CORS proxy for cross-origin requests
  */
 const fetchUrl: ToolHandler = async (args) => {
   const url = args.url as string;
@@ -116,13 +117,14 @@ const fetchUrl: ToolHandler = async (args) => {
   
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
     
-    const response = await fetch(url, {
+    // Use CORS proxy to bypass browser restrictions
+    // allorigins.win is a free CORS proxy
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    
+    const response = await fetch(proxyUrl, {
       signal: controller.signal,
-      headers: {
-        'User-Agent': 'NeuralNexusUI/1.0 (Tool Call)',
-      }
     });
     
     clearTimeout(timeoutId);
@@ -203,6 +205,7 @@ const generateUuid: ToolHandler = () => {
 
 /**
  * Web search using DuckDuckGo
+ * Uses CORS proxy for cross-origin requests
  */
 const webSearch: ToolHandler = async (args) => {
   const query = args.query as string;
@@ -213,18 +216,14 @@ const webSearch: ToolHandler = async (args) => {
   
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
     
-    // Use DuckDuckGo HTML search (more reliable than API)
+    // Use DuckDuckGo HTML search via CORS proxy
     const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
     
-    const response = await fetch(searchUrl, {
+    const response = await fetch(proxyUrl, {
       signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-      }
     });
     
     clearTimeout(timeoutId);
