@@ -486,15 +486,86 @@ export default function App() {
 
   const currentPersonaConfig = personaConfigs[persona] || personaConfigs.default;
 
+  // File upload configuration
+  const FILE_CONFIG = {
+    maxImageSize: 5 * 1024 * 1024,  // 5MB for images
+    maxTextSize: 1 * 1024 * 1024,   // 1MB for text files
+    allowedTextExtensions: [
+      '.txt', '.md', '.markdown', '.json', '.xml', '.csv', '.tsv',
+      '.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
+      '.cs', '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.scala',
+      '.html', '.css', '.scss', '.sass', '.less',
+      '.sql', '.sh', '.bash', '.zsh', '.ps1', '.bat',
+      '.yaml', '.yml', '.toml', '.ini', '.env', '.conf', '.config',
+      '.log', '.gitignore', '.dockerignore', 'Dockerfile', 'Makefile',
+      '.r', '.R', '.jl', '.lua', '.pl', '.pm'
+    ],
+    allowedImageTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+  };
+
+  const getFileExtension = (filename) => {
+    const lastDot = filename.lastIndexOf('.');
+    if (lastDot === -1) return filename; // Files like Dockerfile, Makefile
+    return filename.slice(lastDot).toLowerCase();
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const [fileError, setFileError] = useState(null);
+
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
+    setFileError(null);
+    
     files.forEach(file => {
+      const ext = getFileExtension(file.name);
+      const isImage = FILE_CONFIG.allowedImageTypes.includes(file.type) || file.type.startsWith('image/');
+      const isAllowedText = FILE_CONFIG.allowedTextExtensions.includes(ext) || 
+                           FILE_CONFIG.allowedTextExtensions.includes(file.name);
+      
+      // Validate file type
+      if (!isImage && !isAllowedText) {
+        setFileError(`Unsupported file type: ${file.name}. Only images and code/text files are supported.`);
+        return;
+      }
+      
+      // Validate file size
+      if (isImage && file.size > FILE_CONFIG.maxImageSize) {
+        setFileError(`Image too large: ${file.name} (${formatFileSize(file.size)}). Max: ${formatFileSize(FILE_CONFIG.maxImageSize)}`);
+        return;
+      }
+      
+      if (!isImage && file.size > FILE_CONFIG.maxTextSize) {
+        setFileError(`File too large: ${file.name} (${formatFileSize(file.size)}). Max: ${formatFileSize(FILE_CONFIG.maxTextSize)}`);
+        return;
+      }
+      
       const reader = new FileReader();
-      if (file.type.startsWith('image/')) {
-        reader.onloadend = () => setAttachments(prev => [...prev, { type: 'image', content: reader.result, name: file.name }]);
+      
+      reader.onerror = () => {
+        setFileError(`Failed to read file: ${file.name}`);
+      };
+      
+      if (isImage) {
+        reader.onloadend = () => setAttachments(prev => [...prev, { 
+          type: 'image', 
+          content: reader.result, 
+          name: file.name,
+          size: file.size 
+        }]);
         reader.readAsDataURL(file);
       } else {
-        reader.onloadend = () => setAttachments(prev => [...prev, { type: 'file', content: reader.result, name: file.name }]);
+        reader.onloadend = () => setAttachments(prev => [...prev, { 
+          type: 'file', 
+          content: reader.result, 
+          name: file.name,
+          size: file.size,
+          ext: ext 
+        }]);
         reader.readAsText(file);
       }
     });
@@ -1070,12 +1141,24 @@ export default function App() {
         {/* Input Area */}
         <div className="p-4 md:p-6 bg-[#09090b]">
           <div className="max-w-4xl mx-auto relative">
+             {/* File Error Alert */}
+             {fileError && (
+               <div className="absolute bottom-full left-0 right-0 mb-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center gap-3 animate-in slide-in-from-bottom-2">
+                 <AlertTriangle size={18} className="text-red-400 flex-shrink-0" />
+                 <span className="text-sm text-red-300 flex-1">{fileError}</span>
+                 <button onClick={() => setFileError(null)} className="text-red-400 hover:text-red-300"><X size={16} /></button>
+               </div>
+             )}
+             
              {attachments.length > 0 && (
-               <div className="absolute bottom-full left-0 mb-4 flex gap-2 overflow-x-auto max-w-full p-2 animate-in slide-in-from-bottom-2">
+               <div className={`absolute bottom-full left-0 ${fileError ? 'mb-16' : 'mb-4'} flex gap-2 overflow-x-auto max-w-full p-2 animate-in slide-in-from-bottom-2`}>
                  {attachments.map((att, i) => (
                    <div key={i} className="bg-[#18181b] border border-gray-700 rounded-lg p-2 flex items-center gap-3 min-w-[120px] shadow-xl">
                      {att.type === 'image' ? <img src={att.content} alt="Preview" className="h-8 w-8 object-cover rounded" /> : <div className="h-8 w-8 bg-gray-800 rounded flex items-center justify-center"><FileText size={16} className="text-gray-400"/></div>}
-                     <span className="text-xs text-gray-300 truncate max-w-[100px]">{att.name}</span>
+                     <div className="flex flex-col">
+                       <span className="text-xs text-gray-300 truncate max-w-[100px]">{att.name}</span>
+                       {att.size && <span className="text-[10px] text-gray-500">{formatFileSize(att.size)}</span>}
+                     </div>
                      <button onClick={() => setAttachments(attachments.filter((_, idx) => idx !== i))} className="hover:text-red-400"><X size={14} /></button>
                    </div>
                  ))}
@@ -1096,7 +1179,7 @@ export default function App() {
 
             <div className={`relative bg-[#18181b] rounded-xl flex items-end p-2 border transition-colors shadow-2xl ${streaming ? 'border-indigo-500/30' : 'border-gray-700 hover:border-gray-600'}`}>
               <div className="pb-1 pl-1 flex flex-col gap-1">
-                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple />
+                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple accept="image/*,.txt,.md,.json,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.h,.cs,.go,.rs,.rb,.php,.swift,.kt,.html,.css,.scss,.sql,.sh,.yaml,.yml,.toml,.xml,.csv,.log,.env,.conf" />
                  <button onClick={() => fileInputRef.current?.click()} disabled={streaming || !selectedModel} className="p-2 text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50" title="Attach">
                    <Plus size={20} />
                  </button>
