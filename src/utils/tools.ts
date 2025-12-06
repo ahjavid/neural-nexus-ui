@@ -5,10 +5,22 @@
  * - Tool definitions with JSON schema
  * - Tool handler implementations
  * - Registry for managing available tools
+ * - Neurosymbolic search integration (Phase 1-3)
  */
 
 import type { ToolDefinition, ToolHandler, RegisteredTool, ToolCall } from '../types';
 import { getApiUrl } from './helpers';
+import {
+  extractEntities,
+  createKnowledgeGraph,
+  hybridSearch,
+  buildReasoningChain,
+  formatReasoningChain,
+  decomposeQuery,
+  type KnowledgeGraph,
+  type HybridSearchResult,
+  type EntityExtractionResult
+} from './neurosymbolic';
 
 // ============================================
 // Configuration Store (for API keys)
@@ -423,13 +435,29 @@ const textStats: ToolHandler = (args) => {
 // RAG (Retrieval-Augmented Generation) Search
 // ============================================
 
+// Extended cache to support neurosymbolic features
 interface EmbeddingCache {
   entries: Map<string, { id: string; content: string; embedding: number[] }>;
   model: string;
   lastUpdated: number;
+  knowledgeGraph?: KnowledgeGraph;
+  nodeEmbeddings?: Map<string, number[]>;
 }
 
 let embeddingCache: EmbeddingCache | null = null;
+
+// Store for extracted entities from recent searches (for explainability)
+let lastSearchExplanation: {
+  query: string;
+  queryEntities: EntityExtractionResult;
+  results: HybridSearchResult[];
+  reasoningChain?: string;
+} | null = null;
+
+/**
+ * Get the last search explanation for UI display
+ */
+export const getLastSearchExplanation = () => lastSearchExplanation;
 
 /**
  * Calculate cosine similarity between two vectors
@@ -473,7 +501,8 @@ const getEmbedding = async (text: string, model: string, endpoint: string): Prom
 };
 
 /**
- * Load and embed knowledge base entries (supports chunks for better RAG)
+ * Load and embed knowledge base entries with neurosymbolic enhancements
+ * Builds both embeddings and knowledge graph
  */
 const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => {
   const config = getToolConfig();
@@ -489,6 +518,8 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
     title: string; 
     content: string;
     chunks?: Array<{ id: string; content: string; index: number }>;
+    source?: string;
+    createdAt?: number;
   }>;
   try {
     entries = JSON.parse(storedKb);
@@ -512,14 +543,20 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
     return embeddingCache;
   }
   
-  console.log('[RAG] Building embedding cache for', entries.length, 'documents');
+  console.log('[Neurosymbolic RAG] Building embedding cache and knowledge graph for', entries.length, 'documents');
+  
+  // Build knowledge graph (symbolic component)
+  const knowledgeGraph = createKnowledgeGraph(entries);
+  console.log('[Neurosymbolic RAG] Built knowledge graph with', knowledgeGraph.nodes.size, 'nodes and', knowledgeGraph.relations.length, 'relations');
   
   // Embed all entries (use chunks if available, otherwise whole document)
   const cache: EmbeddingCache & { kbHash?: string } = {
     entries: new Map(),
     model: config.embeddingModel,
     lastUpdated: Date.now(),
-    kbHash
+    kbHash,
+    knowledgeGraph,
+    nodeEmbeddings: new Map()
   };
   
   for (const entry of entries) {
@@ -534,6 +571,8 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
             content: `**${entry.title}** (chunk ${chunk.index + 1}/${entry.chunks.length})\n${chunk.content}`,
             embedding
           });
+          // Store in nodeEmbeddings for hybrid search
+          cache.nodeEmbeddings!.set(chunkId, embedding);
         }
       } else {
         // Embed whole document
@@ -544,25 +583,31 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
           content: `**${entry.title}**\n${entry.content}`,
           embedding
         });
+        // Store in nodeEmbeddings for hybrid search
+        cache.nodeEmbeddings!.set(String(entry.id), embedding);
       }
     } catch (e) {
-      console.error(`[RAG] Failed to embed entry ${entry.title}:`, e);
+      console.error(`[Neurosymbolic RAG] Failed to embed entry ${entry.title}:`, e);
     }
   }
   
-  console.log('[RAG] Embedded', cache.entries.size, 'chunks/documents');
+  console.log('[Neurosymbolic RAG] Embedded', cache.entries.size, 'chunks/documents');
   
   embeddingCache = cache;
   return cache;
 };
 
 /**
- * RAG search using embeddings
+ * Neurosymbolic RAG search using hybrid approach:
+ * - Neural: embedding similarity
+ * - Symbolic: entity matching, keyword overlap, knowledge graph relations
  */
 const ragSearch: ToolHandler = async (args) => {
   const query = args.query as string;
-  const topK = (args.top_k as number) || 3;
-  const threshold = (args.threshold as number) || 0.5;
+  const topK = (args.top_k as number) || 5;
+  const threshold = (args.threshold as number) || 0.3;
+  const useHybrid = (args.hybrid as boolean) !== false; // Default to hybrid
+  const showReasoning = (args.show_reasoning as boolean) || false;
   
   if (!query) {
     return 'Error: No search query provided';
@@ -571,58 +616,197 @@ const ragSearch: ToolHandler = async (args) => {
   const config = getToolConfig();
   
   try {
-    // Load and embed knowledge base
+    // Load and embed knowledge base (with knowledge graph)
     const cache = await loadKnowledgeBaseEmbeddings();
     
     if (!cache || cache.entries.size === 0) {
       return 'No documents found in knowledge base. Please add documents in the Knowledge Base section.';
     }
     
-    // Get query embedding
-    const queryEmbedding = await getEmbedding(query, config.embeddingModel, config.ollamaEndpoint);
+    // Extract entities from query for explanation
+    const queryEntities = extractEntities(query);
     
-    // Calculate similarities
-    const similarities: Array<{ id: string; content: string; score: number }> = [];
+    // Check for query decomposition (comparison queries, etc.)
+    const subQueries = decomposeQuery(query);
+    const isComplexQuery = subQueries.length > 1;
     
-    for (const [, entry] of cache.entries) {
-      const score = cosineSimilarity(queryEmbedding, entry.embedding);
-      if (score >= threshold) {
-        similarities.push({
-          id: entry.id,
-          content: entry.content,
-          score
-        });
+    let results: HybridSearchResult[] = [];
+    
+    if (useHybrid && cache.knowledgeGraph && cache.nodeEmbeddings) {
+      // Use neurosymbolic hybrid search
+      console.log('[Neurosymbolic RAG] Using hybrid search with', 
+        queryEntities.entities.length, 'entities and',
+        queryEntities.keywords.length, 'keywords');
+      
+      // Get query embedding function
+      const getQueryEmbedding = async (text: string) => 
+        getEmbedding(text, config.embeddingModel, config.ollamaEndpoint);
+      
+      if (isComplexQuery) {
+        // Handle complex queries by searching sub-queries
+        console.log('[Neurosymbolic RAG] Complex query detected, decomposing into:', subQueries);
+        
+        const allResults: HybridSearchResult[] = [];
+        for (const subQuery of subQueries) {
+          const subResults = await hybridSearch(
+            subQuery,
+            cache.knowledgeGraph,
+            getQueryEmbedding,
+            cache.nodeEmbeddings,
+            { 
+              topK: Math.ceil(topK / subQueries.length) + 2,
+              minScore: threshold,
+              semanticWeight: 0.45,
+              entityWeight: 0.30,
+              keywordWeight: 0.15,
+              graphWeight: 0.10
+            }
+          );
+          allResults.push(...subResults);
+        }
+        
+        // Deduplicate and re-rank
+        const seenIds = new Set<string>();
+        results = allResults.filter(r => {
+          if (seenIds.has(r.nodeId)) return false;
+          seenIds.add(r.nodeId);
+          return true;
+        }).sort((a, b) => b.score - a.score).slice(0, topK);
+      } else {
+        // Simple query - direct hybrid search
+        results = await hybridSearch(
+          query,
+          cache.knowledgeGraph,
+          getQueryEmbedding,
+          cache.nodeEmbeddings,
+          { 
+            topK,
+            minScore: threshold,
+            semanticWeight: 0.45,
+            entityWeight: 0.30,
+            keywordWeight: 0.15,
+            graphWeight: 0.10
+          }
+        );
       }
+    } else {
+      // Fallback to pure semantic search
+      console.log('[Neurosymbolic RAG] Using pure semantic search (fallback)');
+      
+      const queryEmbedding = await getEmbedding(query, config.embeddingModel, config.ollamaEndpoint);
+      
+      const similarities: Array<{ id: string; content: string; score: number }> = [];
+      
+      for (const [, entry] of cache.entries) {
+        const score = cosineSimilarity(queryEmbedding, entry.embedding);
+        if (score >= threshold) {
+          similarities.push({
+            id: entry.id,
+            content: entry.content,
+            score
+          });
+        }
+      }
+      
+      similarities.sort((a, b) => b.score - a.score);
+      
+      results = similarities.slice(0, topK).map(s => ({
+        nodeId: s.id,
+        content: s.content,
+        title: '',
+        score: s.score,
+        explanation: {
+          semanticScore: s.score,
+          entityMatches: [],
+          keywordMatches: [],
+          graphConnections: []
+        }
+      }));
     }
     
-    // Sort by score descending
-    similarities.sort((a, b) => b.score - a.score);
+    // Store explanation for UI display
+    lastSearchExplanation = {
+      query,
+      queryEntities,
+      results
+    };
     
-    // Take top K
-    const topResults = similarities.slice(0, topK);
-    
-    if (topResults.length === 0) {
-      return `No relevant documents found for "${query}" (threshold: ${threshold}). Try lowering the threshold or adding more relevant documents.`;
+    if (results.length === 0) {
+      return `No relevant documents found for "${query}" (threshold: ${threshold}). Try:\n- Lowering the threshold\n- Using different keywords\n- Adding more relevant documents`;
     }
     
-    // Format results
-    const results: string[] = [
-      `Found ${topResults.length} relevant document(s) for "${query}":\n`
+    // Build reasoning chain if requested
+    let reasoningOutput = '';
+    if (showReasoning && cache.knowledgeGraph) {
+      const chain = await buildReasoningChain(query, cache.knowledgeGraph, results);
+      reasoningOutput = '\n\n' + formatReasoningChain(chain);
+      lastSearchExplanation.reasoningChain = reasoningOutput;
+    }
+    
+    // Format results with explanations
+    const output: string[] = [
+      `🔍 **Neurosymbolic Search Results** for "${query}"`,
+      `Found ${results.length} relevant document(s)`,
+      ''
     ];
     
-    for (let i = 0; i < topResults.length; i++) {
-      const result = topResults[i];
-      results.push(`---\n**Document ${i + 1}** (Relevance: ${(result.score * 100).toFixed(1)}%)\n`);
-      results.push(result.content);
-      results.push('');
+    // Show query analysis
+    if (queryEntities.entities.length > 0 || queryEntities.keywords.length > 0) {
+      output.push('**Query Analysis:**');
+      if (queryEntities.entities.length > 0) {
+        const entitySummary = queryEntities.entities
+          .slice(0, 5)
+          .map(e => `${e.type}: "${e.value}"`)
+          .join(', ');
+        output.push(`- Entities detected: ${entitySummary}`);
+      }
+      if (queryEntities.keywords.length > 0) {
+        output.push(`- Keywords: ${queryEntities.keywords.slice(0, 8).join(', ')}`);
+      }
+      output.push('');
     }
     
-    return results.join('\n');
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const exp = result.explanation;
+      
+      output.push(`---`);
+      output.push(`**Document ${i + 1}** | Score: ${(result.score * 100).toFixed(1)}%`);
+      
+      // Show score breakdown
+      const breakdown: string[] = [];
+      if (exp.semanticScore > 0) {
+        breakdown.push(`Semantic: ${(exp.semanticScore * 100).toFixed(0)}%`);
+      }
+      if (exp.entityMatches.length > 0) {
+        breakdown.push(`Entities: ${exp.entityMatches.length} match${exp.entityMatches.length > 1 ? 'es' : ''}`);
+      }
+      if (exp.keywordMatches.length > 0) {
+        breakdown.push(`Keywords: ${exp.keywordMatches.length}`);
+      }
+      if (exp.graphConnections.length > 0) {
+        breakdown.push(`Graph links: ${exp.graphConnections.length}`);
+      }
+      if (breakdown.length > 0) {
+        output.push(`*[${breakdown.join(' | ')}]*`);
+      }
+      
+      output.push('');
+      output.push(result.content);
+      output.push('');
+    }
+    
+    // Add reasoning chain if available
+    if (reasoningOutput) {
+      output.push(reasoningOutput);
+    }
+    
+    return output.join('\n');
   } catch (e) {
     if ((e as Error).message?.includes('HTTP')) {
       return `Error: Could not generate embeddings. Make sure the embedding model "${config.embeddingModel}" is available in Ollama.`;
     }
-    return `Error performing RAG search: ${(e as Error).message}`;
+    return `Error performing neurosymbolic search: ${(e as Error).message}`;
   }
 };
 
@@ -810,22 +994,30 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     type: 'function',
     function: {
       name: 'rag_search',
-      description: 'Search through the USER\'S PERSONAL knowledge base and uploaded documents using semantic similarity (RAG). ALWAYS use this tool FIRST when the user asks about: their documents, their files, their uploads, their notes, "my documents", personal data like bank statements, receipts, invoices, or any content they have added to the knowledge base. This searches LOCAL user data, not the web.',
+      description: 'Search through the USER\'S PERSONAL knowledge base using Neurosymbolic AI - a hybrid approach combining neural embeddings with symbolic reasoning (entity matching, keyword analysis, knowledge graph relations). ALWAYS use this tool FIRST when the user asks about: their documents, files, uploads, notes, "my documents", personal data like bank statements, receipts, invoices, or any content they have added. Supports complex queries like comparisons and temporal reasoning.',
       parameters: {
         type: 'object',
         required: ['query'],
         properties: {
           query: {
             type: 'string',
-            description: 'The search query. Describe what you\'re looking for in the user\'s documents.'
+            description: 'The search query. Describe what you\'re looking for. Complex queries like "compare X to Y" or "find expenses in January" are supported.'
           },
           top_k: {
             type: 'number',
-            description: 'Number of top results to return (1-10). Defaults to 3.'
+            description: 'Number of top results to return (1-10). Defaults to 5.'
           },
           threshold: {
             type: 'number',
-            description: 'Minimum similarity threshold (0-1). Lower values return more results. Defaults to 0.5.'
+            description: 'Minimum score threshold (0-1). Lower = more results. Defaults to 0.3.'
+          },
+          hybrid: {
+            type: 'boolean',
+            description: 'Use hybrid neurosymbolic search (true) or pure semantic search (false). Defaults to true.'
+          },
+          show_reasoning: {
+            type: 'boolean',
+            description: 'Show the reasoning chain explaining how results were found. Defaults to false.'
           }
         }
       }

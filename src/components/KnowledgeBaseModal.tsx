@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Database, X, Trash2, Check, Upload, Link, FileText, Globe, File, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Database, X, Trash2, Check, Upload, Link, FileText, Globe, File, Loader2, ChevronDown, ChevronRight, Brain, Tag, Hash } from 'lucide-react';
 import { Button } from './Button';
 import type { KnowledgeEntry } from '../types';
 import { processDocument, fetchUrlContent, chunkText } from '../utils/documents';
+import { extractEntities, extractKeywords } from '../utils/neurosymbolic';
 
 interface KnowledgeBaseModalProps {
   isOpen: boolean;
@@ -30,7 +31,11 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [url, setUrl] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [showEntities, setShowEntities] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Cache for extracted entities (computed on demand)
+  const [entityCache, setEntityCache] = useState<Map<number, { entities: Array<{type: string; value: string}>; keywords: string[] }>>(new Map());
 
   if (!isOpen) return null;
 
@@ -139,6 +144,54 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
     return `${(count / 1000000).toFixed(1)}M chars`;
   };
 
+  // Get or compute entity info for a knowledge entry
+  const getEntityInfo = (entry: KnowledgeEntry) => {
+    // Check if already cached
+    if (entityCache.has(entry.id)) {
+      return entityCache.get(entry.id)!;
+    }
+    
+    // Extract entities and keywords
+    const extraction = extractEntities(entry.content);
+    const keywords = extractKeywords(entry.content, 8);
+    
+    // Deduplicate entities
+    const seenEntities = new Set<string>();
+    const uniqueEntities = extraction.entities
+      .filter(e => {
+        const key = `${e.type}:${e.value}`;
+        if (seenEntities.has(key)) return false;
+        seenEntities.add(key);
+        return true;
+      })
+      .slice(0, 10)
+      .map(e => ({ type: e.type, value: e.value }));
+    
+    const result = { entities: uniqueEntities, keywords };
+    
+    // Cache the result
+    setEntityCache(new Map(entityCache).set(entry.id, result));
+    
+    return result;
+  };
+
+  // Get entity type color
+  const getEntityColor = (type: string) => {
+    const colors: Record<string, string> = {
+      date: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      time: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+      money: 'bg-green-500/20 text-green-400 border-green-500/30',
+      percentage: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+      email: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+      phone: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+      url: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+      number: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      duration: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+      ordinal: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+    };
+    return colors[type] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-[#18181b] border border-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden h-[85vh] flex flex-col">
@@ -147,6 +200,9 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
           <h3 className="font-bold text-gray-200 flex items-center gap-2">
             <Database size={18} /> Knowledge Base
             <span className="text-xs text-gray-500 font-normal">({knowledgeBase.length} entries)</span>
+            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+              <Brain size={10} /> Neurosymbolic AI
+            </span>
           </h3>
           <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
             <X size={20} />
@@ -183,6 +239,10 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                   <div className="flex items-center gap-2 mb-1">
                     {getSourceIcon(k)}
                     <h4 className="font-medium text-sm text-gray-200 truncate">{k.title}</h4>
+                    {/* Neurosymbolic badge */}
+                    <span className="px-1.5 py-0.5 rounded text-[9px] bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-0.5">
+                      <Brain size={9} /> AI
+                    </span>
                   </div>
                   
                   <div className="flex items-center gap-2 text-[10px] text-gray-500">
@@ -196,14 +256,69 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                     {k.chunks && <span>• {k.chunks.length} chunks</span>}
                   </div>
                   
+                  {/* Entity/Keyword Preview (always show if expanded) */}
+                  {(expandedId === k.id || showEntities === k.id) && (() => {
+                    const info = getEntityInfo(k);
+                    return (
+                      <div className="mt-2 space-y-2">
+                        {/* Entities */}
+                        {info.entities.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            <span className="text-[10px] text-gray-500 flex items-center gap-0.5 mr-1">
+                              <Tag size={10} /> Entities:
+                            </span>
+                            {info.entities.slice(0, 6).map((e, i) => (
+                              <span 
+                                key={i} 
+                                className={`px-1.5 py-0.5 rounded text-[9px] border ${getEntityColor(e.type)}`}
+                                title={e.type}
+                              >
+                                {e.value.slice(0, 25)}{e.value.length > 25 ? '…' : ''}
+                              </span>
+                            ))}
+                            {info.entities.length > 6 && (
+                              <span className="text-[9px] text-gray-500">+{info.entities.length - 6} more</span>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Keywords */}
+                        {info.keywords.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            <span className="text-[10px] text-gray-500 flex items-center gap-0.5 mr-1">
+                              <Hash size={10} /> Keywords:
+                            </span>
+                            {info.keywords.slice(0, 8).map((kw, i) => (
+                              <span 
+                                key={i} 
+                                className="px-1.5 py-0.5 rounded text-[9px] bg-gray-800 text-gray-400 border border-gray-700"
+                              >
+                                {kw}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  
                   {/* Preview / Expand */}
-                  <button
-                    onClick={() => setExpandedId(expandedId === k.id ? null : k.id)}
-                    className="mt-2 text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
-                  >
-                    {expandedId === k.id ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    {expandedId === k.id ? 'Hide content' : 'Show content'}
-                  </button>
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      onClick={() => setExpandedId(expandedId === k.id ? null : k.id)}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                    >
+                      {expandedId === k.id ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                      {expandedId === k.id ? 'Hide content' : 'Show content'}
+                    </button>
+                    <button
+                      onClick={() => setShowEntities(showEntities === k.id ? null : k.id)}
+                      className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                    >
+                      <Brain size={12} />
+                      {showEntities === k.id ? 'Hide analysis' : 'Show analysis'}
+                    </button>
+                  </div>
                   
                   {expandedId === k.id && (
                     <pre className="mt-2 p-2 bg-[#18181b] rounded text-[11px] text-gray-400 max-h-40 overflow-auto whitespace-pre-wrap font-mono">

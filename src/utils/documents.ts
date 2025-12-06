@@ -2,6 +2,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import type { DocumentResult, KnowledgeChunk } from '../types';
+import { extractEntities, extractKeywords } from './neurosymbolic';
 
 // Set up PDF.js worker using Web Worker with module type
 if (typeof window !== 'undefined' && 'Worker' in window) {
@@ -12,39 +13,59 @@ if (typeof window !== 'undefined' && 'Worker' in window) {
 }
 
 // ============================================
-// Text Chunking for RAG
+// Text Chunking for RAG (with entity extraction)
 // ============================================
 
 export interface ChunkOptions {
   chunkSize?: number;      // Target size of each chunk in characters
   chunkOverlap?: number;   // Overlap between chunks for context continuity
   minChunkSize?: number;   // Minimum chunk size to keep
+  extractEntities?: boolean; // Whether to extract entities from chunks
 }
 
-const defaultChunkOptions: Required<ChunkOptions> = {
+export interface EnhancedKnowledgeChunk extends KnowledgeChunk {
+  entities?: Array<{ type: string; value: string }>;
+  keywords?: string[];
+}
+
+const defaultChunkOptions: Required<Omit<ChunkOptions, 'extractEntities'>> & { extractEntities: boolean } = {
   chunkSize: 1000,
   chunkOverlap: 200,
-  minChunkSize: 100
+  minChunkSize: 100,
+  extractEntities: true
 };
 
 /**
  * Split text into chunks for better RAG retrieval
  * Uses sentence-aware splitting to avoid cutting mid-sentence
+ * Optionally extracts entities for neurosymbolic search
  */
-export const chunkText = (text: string, options: ChunkOptions = {}): KnowledgeChunk[] => {
+export const chunkText = (text: string, options: ChunkOptions = {}): EnhancedKnowledgeChunk[] => {
   const opts = { ...defaultChunkOptions, ...options };
-  const chunks: KnowledgeChunk[] = [];
+  const chunks: EnhancedKnowledgeChunk[] = [];
   
   // Normalize whitespace
   const normalizedText = text.replace(/\s+/g, ' ').trim();
   
   if (normalizedText.length <= opts.chunkSize) {
     // Text is small enough, return as single chunk
-    return [{
+    const chunk: EnhancedKnowledgeChunk = {
       id: `chunk-0`,
       content: normalizedText,
       index: 0
-    }];
+    };
+    
+    // Extract entities if enabled
+    if (opts.extractEntities) {
+      const extraction = extractEntities(normalizedText);
+      chunk.entities = extraction.entities.slice(0, 20).map(e => ({
+        type: e.type,
+        value: e.value
+      }));
+      chunk.keywords = extractKeywords(normalizedText, 10);
+    }
+    
+    return [chunk];
   }
   
   // Split by sentences first (periods, exclamation marks, question marks followed by space)
@@ -57,11 +78,23 @@ export const chunkText = (text: string, options: ChunkOptions = {}): KnowledgeCh
     // If adding this sentence would exceed chunk size
     if (currentChunk.length + sentence.length > opts.chunkSize && currentChunk.length >= opts.minChunkSize) {
       // Save current chunk
-      chunks.push({
+      const chunk: EnhancedKnowledgeChunk = {
         id: `chunk-${chunkIndex}`,
         content: currentChunk.trim(),
         index: chunkIndex
-      });
+      };
+      
+      // Extract entities if enabled
+      if (opts.extractEntities) {
+        const extraction = extractEntities(currentChunk);
+        chunk.entities = extraction.entities.slice(0, 15).map(e => ({
+          type: e.type,
+          value: e.value
+        }));
+        chunk.keywords = extractKeywords(currentChunk, 8);
+      }
+      
+      chunks.push(chunk);
       chunkIndex++;
       
       // Start new chunk with overlap (last part of previous chunk)
@@ -74,14 +107,61 @@ export const chunkText = (text: string, options: ChunkOptions = {}): KnowledgeCh
   
   // Don't forget the last chunk
   if (currentChunk.trim().length >= opts.minChunkSize) {
-    chunks.push({
+    const chunk: EnhancedKnowledgeChunk = {
       id: `chunk-${chunkIndex}`,
       content: currentChunk.trim(),
       index: chunkIndex
-    });
+    };
+    
+    // Extract entities if enabled
+    if (opts.extractEntities) {
+      const extraction = extractEntities(currentChunk);
+      chunk.entities = extraction.entities.slice(0, 15).map(e => ({
+        type: e.type,
+        value: e.value
+      }));
+      chunk.keywords = extractKeywords(currentChunk, 8);
+    }
+    
+    chunks.push(chunk);
   }
   
   return chunks;
+};
+
+/**
+ * Extract document summary with entities for preview
+ */
+export const getDocumentSummary = (text: string): {
+  preview: string;
+  entityCount: number;
+  keyEntities: Array<{ type: string; value: string }>;
+  keywords: string[];
+} => {
+  const extraction = extractEntities(text);
+  const keywords = extractKeywords(text, 10);
+  
+  // Get preview (first 200 chars)
+  const preview = text.slice(0, 200).trim() + (text.length > 200 ? '...' : '');
+  
+  // Get key entities (deduplicated, top 5)
+  const seenEntities = new Set<string>();
+  const keyEntities = extraction.entities
+    .filter(e => {
+      const key = `${e.type}:${e.value}`;
+      if (seenEntities.has(key)) return false;
+      seenEntities.add(key);
+      return true;
+    })
+    .slice(0, 5)
+    .map(e => ({ type: e.type, value: e.value }));
+  
+  return {
+    preview,
+    entityCount: extraction.entities.length,
+    keyEntities,
+    keywords
+  };
 };
 
 // ============================================

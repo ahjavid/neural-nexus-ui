@@ -40,12 +40,23 @@ export interface KnowledgeEntry {
   chunks?: KnowledgeChunk[];
   createdAt?: number;
   charCount?: number;
+  // Neurosymbolic enhancements
+  entities?: ExtractedEntitySummary[];
+  keywords?: string[];
+  relationCount?: number;
 }
 
 export interface KnowledgeChunk {
   id: string;
   content: string;
   index: number;
+}
+
+// Neurosymbolic entity types (simplified for storage)
+export interface ExtractedEntitySummary {
+  type: string;
+  value: string;
+  count: number;
 }
 
 // Model types
