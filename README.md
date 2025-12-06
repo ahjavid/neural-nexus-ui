@@ -10,14 +10,16 @@ A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI m
 
 - **🎨 Modern Dark UI** - Beautiful, responsive interface with smooth animations
 - **🗣️ Voice Mode** - Hands-free conversation with speech recognition and text-to-speech
-- **🔧 Tool Calling** - AI can use tools for calculations, time, URL fetching, and more
-- **📚 Knowledge Base** - Attach custom knowledge for context-aware responses
+- **🔧 Tool Calling** - AI can use tools for calculations, web search, RAG, and more
+- **🔍 Tavily Search** - AI-powered web search with direct answers (API key required)
+- **🧠 RAG Search** - Semantic search through your documents using embeddings
+- **📚 Knowledge Base** - Upload files, fetch URLs, or paste text for context
 - **🎭 Personas** - Switch between chat modes (Default, Coder, Writer, Analyst)
 - **🧘 Zen Mode** - Distraction-free, minimal interface
 - **⚙️ Advanced Settings** - Full control over model parameters (temperature, top_k, top_p, etc.)
 - **💾 Session Management** - Multiple chat sessions with auto-save using IndexedDB
 - **📎 File Attachments** - Upload images, code files, and documents
-- **📄 Document Processing** - Extract text from PDF, Word (.docx), and Excel (.xlsx) files
+- **📄 Document Processing** - Extract text from PDF, Word (.docx), Excel, and more
 - **⌨️ Keyboard Shortcuts** - Power user friendly
 - **🔄 Streaming Responses** - Real-time token streaming
 
@@ -119,9 +121,10 @@ neural-nexus-ui/
 │   │   ├── WelcomeScreen.tsx
 │   │   └── index.ts
 │   ├── utils/            # Utility functions
-│   │   ├── documents.ts  # PDF/Word/Excel processing
+│   │   ├── documents.ts  # PDF/Word/Excel processing + chunking
 │   │   ├── helpers.ts    # Formatting helpers
 │   │   ├── storage.ts    # IndexedDB manager
+│   │   ├── tools.ts      # Tool registry and handlers
 │   │   └── index.ts
 │   ├── types/            # TypeScript types
 │   │   └── index.ts
@@ -217,20 +220,42 @@ Neural Nexus can extract text from various document formats for AI analysis:
 | **PDF** | `.pdf` | Text extraction from all pages | 100MB |
 | **Word** | `.docx`, `.doc` | Full text extraction | 100MB |
 | **Excel** | `.xlsx`, `.xls` | CSV conversion per sheet | 100MB |
+| **Text/Code** | `.txt`, `.md`, `.json`, `.csv`, `.xml`, `.html`, `.js`, `.ts`, `.py`, `.yaml` | Direct text | 25MB |
 | **Images** | `.png`, `.jpg`, `.gif`, `.webp` | Sent to multimodal models | 50MB |
-| **Code/Text** | `.py`, `.js`, `.md`, `.txt`, etc. | Direct text injection | 25MB |
 
 ### How Document Processing Works
 
 1. **CPU-based extraction** - Documents are processed in your browser using JavaScript libraries
-2. **Text injection** - Extracted text is injected into the prompt for the LLM
-3. **No external services** - All processing happens locally, your documents never leave your machine
+2. **Automatic chunking** - Large documents are split into ~1000 char chunks with 200 char overlap
+3. **Text injection** - Extracted text is injected into the prompt for the LLM
+4. **No external services** - All processing happens locally, your documents never leave your machine
 
 ### Supported Libraries
 
 - **PDF.js** - Mozilla's PDF rendering library
 - **Mammoth** - Word document text extraction
 - **SheetJS (xlsx)** - Excel spreadsheet parsing
+
+## 📚 Knowledge Base
+
+The Knowledge Base allows you to add persistent context that can be:
+1. **Injected into conversations** - Check entries to include them in system prompt
+2. **Searched semantically** - Use RAG search to find relevant content
+
+### Adding Content
+
+| Method | Description |
+|--------|-------------|
+| **Text** | Paste text directly with a title |
+| **File Upload** | Upload PDF, DOCX, TXT, MD, JSON, CSV, and more |
+| **URL** | Fetch and extract content from any web page |
+
+### Document Chunking
+
+Large documents are automatically split for better RAG retrieval:
+- **Chunk size**: ~1000 characters
+- **Overlap**: 200 characters (maintains context continuity)
+- **Sentence-aware**: Won't cut in the middle of sentences
 
 ## 🔧 Tool Calling (Function Calling)
 
@@ -250,11 +275,34 @@ Neural Nexus supports Ollama's tool calling feature, allowing the AI to use tool
 | `get_current_time` | Get current date/time with timezone support | "What time is it in Tokyo?" |
 | `calculate` | Mathematical calculations | "What is 15% of 250?" |
 | `random_number` | Generate random numbers | "Give me a random number between 1 and 100" |
-| `web_search` | Search the web using DuckDuckGo | "Search for Lexus RX 350 2025 specs" |
+| `web_search` | Search using DuckDuckGo Instant Answers | "Define machine learning" |
+| `tavily_search` | AI-powered web search with answers | "Search for Lexus LX 2025 specs" |
+| `rag_search` | Semantic search through Knowledge Base | "Find info about authentication in my docs" |
 | `fetch_url` | Fetch content from a specific URL | "Fetch the content from https://example.com" |
 | `encode_text` | Base64/URL encoding/decoding | "Encode this text to base64" |
 | `generate_uuid` | Generate UUIDs | "Generate a UUID for me" |
 | `text_stats` | Text analysis (word count, etc.) | "How many words are in this paragraph?" |
+
+### Tavily Search (AI-Powered Web Search)
+
+For high-quality, up-to-date web search results:
+
+1. Get a free API key at [tavily.com](https://tavily.com)
+2. Open **Settings** → **Show Tools** → **Tool Configuration**
+3. Enter your Tavily API key
+4. Ask questions about current events, product specs, news, etc.
+
+### RAG Search (Semantic Document Search)
+
+Search your Knowledge Base using AI embeddings:
+
+1. Add documents to Knowledge Base (upload files, fetch URLs, or paste text)
+2. Configure embedding model in Settings (default: `mxbai-embed-large:latest`)
+3. Ask the AI to search your documents
+4. Returns semantically similar content, even without exact keyword matches
+
+**Requirements:**
+- An Ollama embedding model: `ollama pull mxbai-embed-large` or `ollama pull bge-m3`
 
 ### Supported Models
 
