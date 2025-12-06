@@ -14,8 +14,9 @@ A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI m
 - **🎭 Personas** - Switch between chat modes (Default, Coder, Writer, Analyst)
 - **🧘 Zen Mode** - Distraction-free, minimal interface
 - **⚙️ Advanced Settings** - Full control over model parameters (temperature, top_k, top_p, etc.)
-- **💾 Session Management** - Multiple chat sessions with auto-save
-- **📎 File Attachments** - Upload images and text files
+- **💾 Session Management** - Multiple chat sessions with auto-save using IndexedDB
+- **📎 File Attachments** - Upload images, code files, and documents
+- **📄 Document Processing** - Extract text from PDF, Word (.docx), and Excel (.xlsx) files
 - **⌨️ Keyboard Shortcuts** - Power user friendly
 - **🔄 Streaming Responses** - Real-time token streaming
 
@@ -143,9 +144,34 @@ Access these in Settings → Advanced:
 
 ### Storage
 
-- Sessions are saved to `localStorage` (persists across browser refreshes)
-- Knowledge Base entries are stored separately in `localStorage`
+- Sessions are saved to **IndexedDB** (virtually unlimited storage, browser-managed)
+- Knowledge Base entries are stored in IndexedDB
 - No server-side storage - everything stays local
+- Auto-migrates from localStorage to IndexedDB on first load
+
+## 📄 Document Processing
+
+Neural Nexus can extract text from various document formats for AI analysis:
+
+| Format | Extensions | Processing | Max Size |
+|--------|------------|------------|----------|
+| **PDF** | `.pdf` | Text extraction from all pages | 100MB |
+| **Word** | `.docx`, `.doc` | Full text extraction | 100MB |
+| **Excel** | `.xlsx`, `.xls` | CSV conversion per sheet | 100MB |
+| **Images** | `.png`, `.jpg`, `.gif`, `.webp` | Sent to multimodal models | 50MB |
+| **Code/Text** | `.py`, `.js`, `.md`, `.txt`, etc. | Direct text injection | 25MB |
+
+### How Document Processing Works
+
+1. **CPU-based extraction** - Documents are processed in your browser using JavaScript libraries
+2. **Text injection** - Extracted text is injected into the prompt for the LLM
+3. **No external services** - All processing happens locally, your documents never leave your machine
+
+### Supported Libraries
+
+- **PDF.js** - Mozilla's PDF rendering library
+- **Mammoth** - Word document text extraction
+- **SheetJS (xlsx)** - Excel spreadsheet parsing
 
 ## ⚠️ Known Limitations
 
@@ -242,6 +268,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Vite](https://vitejs.dev) - Build tool
 - [Tailwind CSS](https://tailwindcss.com) - Styling
 - [Lucide](https://lucide.dev) - Icons
+- [PDF.js](https://mozilla.github.io/pdf.js/) - PDF text extraction
+- [Mammoth](https://github.com/mwilliamson/mammoth.js) - Word document processing
+- [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ---
 
