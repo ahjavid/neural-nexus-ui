@@ -10,7 +10,8 @@ import {
   FileCode,
   FileText,
   FileSpreadsheet,
-  Loader2
+  Loader2,
+  Wrench
 } from 'lucide-react';
 import type { Attachment } from '../types';
 import { formatFileSize } from '../utils/helpers';
@@ -24,6 +25,7 @@ interface ChatInputProps {
   isListening: boolean;
   onToggleListening: () => void;
   streaming: boolean;
+  executingTools?: boolean;
   onStop: () => void;
   selectedModel: string;
   slashCmdsVisible: boolean;
@@ -43,6 +45,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   isListening,
   onToggleListening,
   streaming,
+  executingTools = false,
   onStop,
   selectedModel,
   slashCmdsVisible,
@@ -206,7 +209,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onInput={handleTextareaInput}
           />
           
-          <div className="pb-1 pr-1">
+          <div className="pb-1 pr-1 flex items-center gap-2">
+            {executingTools && (
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/30 animate-pulse">
+                <Wrench size={14} className="text-emerald-400" />
+                <span className="text-[10px] text-emerald-400 font-medium">Using tools...</span>
+              </div>
+            )}
             {streaming ? (
               <button 
                 onClick={onStop} 

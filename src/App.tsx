@@ -22,6 +22,7 @@ const HelpModal = lazy(() => import('./components/HelpModal'));
 import { dbManager, migrateFromLocalStorage } from './utils/storage';
 import { processDocument } from './utils/documents';
 import { formatFileSize } from './utils/helpers';
+import { toolRegistry } from './utils/tools';
 
 // Types
 import type {
@@ -33,7 +34,9 @@ import type {
   ModelParams,
   PersonaType,
   ConnectionStatus,
-  StorageInfo
+  StorageInfo,
+  ToolCall,
+  ToolDefinition
 } from './types';
 
 // PDF.js setup
@@ -119,6 +122,11 @@ export default function App() {
   const [endpoint, setEndpoint] = useState(() => localStorage.getItem('ollama_endpoint') || '');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful, expert AI assistant.');
   const [params, setParams] = useState<ModelParams>(defaultParams);
+  const [toolsEnabled, setToolsEnabled] = useState(() => {
+    const saved = localStorage.getItem('nexus_tools_global_enabled');
+    return saved ? JSON.parse(saved) : true;
+  });
+  const [executingTools, setExecutingTools] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [pullProgress, setPullProgress] = useState<{
     status: string;
@@ -637,6 +645,141 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  // Helper: Execute a chat request with optional tools
+  const executeChat = async (
+    chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
+    tools: ToolDefinition[] | undefined,
+    signal: AbortSignal
+  ): Promise<{ content: string; tool_calls?: ToolCall[]; done: boolean }> => {
+    const options = {
+      temperature: params.temperature,
+      top_k: params.top_k,
+      top_p: params.top_p,
+      repeat_penalty: params.repeat_penalty,
+      num_predict: params.num_predict,
+      num_ctx: params.num_ctx,
+      ...(params.seed !== -1 && { seed: params.seed }),
+      ...(params.mirostat > 0 && {
+        mirostat: params.mirostat,
+        mirostat_tau: params.mirostat_tau,
+        mirostat_eta: params.mirostat_eta
+      }),
+      ...(params.num_gpu !== -1 && { num_gpu: params.num_gpu }),
+      ...(params.num_thread > 0 && { num_thread: params.num_thread })
+    };
+
+    const response = await fetch(`${endpoint}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: selectedModel,
+        messages: chatMessages,
+        stream: false, // Non-streaming for tool calls
+        options,
+        ...(tools && tools.length > 0 && { tools })
+      }),
+      signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const json = await response.json();
+    return {
+      content: json.message?.content || '',
+      tool_calls: json.message?.tool_calls,
+      done: json.done ?? true
+    };
+  };
+
+  // Helper: Stream a chat response (no tools, for final response)
+  const streamChat = async (
+    chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
+    startTime: number,
+    updatedMessages: Message[],
+    isVoice: boolean
+  ) => {
+    const options = {
+      temperature: params.temperature,
+      top_k: params.top_k,
+      top_p: params.top_p,
+      repeat_penalty: params.repeat_penalty,
+      num_predict: params.num_predict,
+      num_ctx: params.num_ctx,
+      ...(params.seed !== -1 && { seed: params.seed }),
+      ...(params.mirostat > 0 && {
+        mirostat: params.mirostat,
+        mirostat_tau: params.mirostat_tau,
+        mirostat_eta: params.mirostat_eta
+      }),
+      ...(params.num_gpu !== -1 && { num_gpu: params.num_gpu }),
+      ...(params.num_thread > 0 && { num_thread: params.num_thread })
+    };
+
+    const response = await fetch(`${endpoint}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: selectedModel,
+        messages: chatMessages,
+        stream: true,
+        options
+      }),
+      signal: abortControllerRef.current?.signal
+    });
+
+    if (!response.body) throw new Error('No response body');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    updateCurrentSession({
+      messages: [...updatedMessages, { role: 'assistant', content: '', timing: '0', tokenSpeed: '0' }]
+    });
+
+    let tokens = 0;
+    let finalContent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const json = JSON.parse(line);
+          if (json.message && json.message.content) {
+            tokens++;
+            finalContent += json.message.content;
+            const elapsed = (Date.now() - startTime) / 1000;
+
+            setSessions(prev => prev.map(s => {
+              if (s.id === currentSessionId) {
+                const newMsgs = s.messages.slice(0, -1);
+                const newAssistantMsg: Message = {
+                  role: 'assistant',
+                  content: finalContent,
+                  timing: elapsed.toFixed(1),
+                  tokenSpeed: (tokens / elapsed).toFixed(1)
+                };
+                return { ...s, messages: [...newMsgs, newAssistantMsg] };
+              }
+              return s;
+            }));
+          }
+          if (json.done) {
+            setStreaming(false);
+            abortControllerRef.current = null;
+            lastAssistantResponseRef.current = finalContent;
+            if (isVoice) speakMessage(finalContent);
+          }
+        } catch (e) { /* ignore parse errors */ }
+      }
+    }
+    return finalContent;
+  };
+
   const handleSend = async (overrideInput: string | null = null, isVoice = false) => {
     const txt = overrideInput || input;
     if (txt.startsWith('/')) {
@@ -677,85 +820,75 @@ export default function App() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const options = {
-        temperature: params.temperature,
-        top_k: params.top_k,
-        top_p: params.top_p,
-        repeat_penalty: params.repeat_penalty,
-        num_predict: params.num_predict,
-        num_ctx: params.num_ctx,
-        ...(params.seed !== -1 && { seed: params.seed }),
-        ...(params.mirostat > 0 && {
-          mirostat: params.mirostat,
-          mirostat_tau: params.mirostat_tau,
-          mirostat_eta: params.mirostat_eta
-        }),
-        ...(params.num_gpu !== -1 && { num_gpu: params.num_gpu }),
-        ...(params.num_thread > 0 && { num_thread: params.num_thread })
-      };
+      // Get enabled tools if tools are globally enabled
+      const tools = toolsEnabled ? toolRegistry.getToolDefinitions() : [];
+      
+      // Build chat messages for API
+      let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }> = [
+        { role: 'system', content: systemPrompt },
+        ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
+      ];
 
-      const response = await fetch(`${endpoint}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
-          ],
-          stream: true,
-          options
-        }),
-        signal: abortControllerRef.current.signal
-      });
-
-      if (!response.body) throw new Error('No response body');
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      updateCurrentSession({
-        messages: [...updatedMessages, { role: 'assistant', content: '', timing: '0', tokenSpeed: '0' }]
-      });
-
-      let tokens = 0;
-      let finalContent = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const json = JSON.parse(line);
-            if (json.message && json.message.content) {
-              tokens++;
-              finalContent += json.message.content;
-              const elapsed = (Date.now() - startTime) / 1000;
-
-              setSessions(prev => prev.map(s => {
-                if (s.id === currentSessionId) {
-                  const newMsgs = s.messages.slice(0, -1);
-                  const newAssistantMsg: Message = {
-                    role: 'assistant',
-                    content: finalContent,
-                    timing: elapsed.toFixed(1),
-                    tokenSpeed: (tokens / elapsed).toFixed(1)
-                  };
-                  return { ...s, messages: [...newMsgs, newAssistantMsg] };
-                }
-                return s;
-              }));
+      // If tools are enabled, use non-streaming to check for tool calls
+      if (tools.length > 0) {
+        let maxIterations = 5; // Prevent infinite loops
+        let iteration = 0;
+        
+        while (iteration < maxIterations) {
+          iteration++;
+          
+          const result = await executeChat(chatMessages, tools, abortControllerRef.current.signal);
+          
+          // Check if model wants to use tools
+          if (result.tool_calls && result.tool_calls.length > 0) {
+            setExecutingTools(true);
+            
+            // Add assistant message with tool calls to chat history
+            chatMessages.push({
+              role: 'assistant',
+              content: result.content || '',
+              tool_calls: result.tool_calls
+            });
+            
+            // Execute all tool calls
+            const toolResults = await toolRegistry.executeToolCalls(result.tool_calls);
+            
+            // Add tool results to chat history
+            for (const toolResult of toolResults) {
+              chatMessages.push({
+                role: 'tool',
+                tool_name: toolResult.name,
+                content: toolResult.result
+              });
             }
-            if (json.done) {
-              setStreaming(false);
-              abortControllerRef.current = null;
-              lastAssistantResponseRef.current = finalContent;
-              if (isVoice) speakMessage(finalContent);
-            }
-          } catch (e) { /* ignore parse errors */ }
+            
+            setExecutingTools(false);
+            // Continue loop to get next response
+          } else {
+            // No tool calls, we have the final response
+            // Update with the final content
+            const elapsed = (Date.now() - startTime) / 1000;
+            const finalMsg: Message = {
+              role: 'assistant',
+              content: result.content,
+              timing: elapsed.toFixed(1),
+              tokenSpeed: '—' // Non-streaming doesn't give token count
+            };
+            
+            updateCurrentSession({
+              messages: [...updatedMessages, finalMsg]
+            });
+            
+            setStreaming(false);
+            abortControllerRef.current = null;
+            lastAssistantResponseRef.current = result.content;
+            if (isVoice) speakMessage(result.content);
+            break;
+          }
         }
+      } else {
+        // No tools, use streaming as before
+        await streamChat(chatMessages, startTime, updatedMessages, isVoice);
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
@@ -766,6 +899,7 @@ export default function App() {
         ));
       }
       setStreaming(false);
+      setExecutingTools(false);
     }
   };
 
@@ -953,6 +1087,7 @@ export default function App() {
             }
           }}
           streaming={streaming}
+          executingTools={executingTools}
           onStop={() => abortControllerRef.current?.abort()}
           selectedModel={selectedModel}
           slashCmdsVisible={slashCmdsVisible}
@@ -995,6 +1130,11 @@ export default function App() {
           storageInfo={storageInfo}
           onClearChats={handleClearChats}
           onRefreshStorage={refreshStorage}
+          toolsEnabled={toolsEnabled}
+          onToolsEnabledChange={(enabled) => {
+            setToolsEnabled(enabled);
+            localStorage.setItem('nexus_tools_global_enabled', JSON.stringify(enabled));
+          }}
         />
 
         <ModelManagerModal

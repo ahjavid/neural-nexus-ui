@@ -10,6 +10,7 @@ A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI m
 
 - **🎨 Modern Dark UI** - Beautiful, responsive interface with smooth animations
 - **🗣️ Voice Mode** - Hands-free conversation with speech recognition and text-to-speech
+- **🔧 Tool Calling** - AI can use tools for calculations, time, URL fetching, and more
 - **📚 Knowledge Base** - Attach custom knowledge for context-aware responses
 - **🎭 Personas** - Switch between chat modes (Default, Coder, Writer, Analyst)
 - **🧘 Zen Mode** - Distraction-free, minimal interface
@@ -231,6 +232,47 @@ Neural Nexus can extract text from various document formats for AI analysis:
 - **Mammoth** - Word document text extraction
 - **SheetJS (xlsx)** - Excel spreadsheet parsing
 
+## 🔧 Tool Calling (Function Calling)
+
+Neural Nexus supports Ollama's tool calling feature, allowing the AI to use tools for enhanced capabilities.
+
+### Enabling Tools
+
+1. Open **Settings** (`Ctrl/Cmd + ,`)
+2. Click **"Show Tools (Function Calling)"**
+3. Toggle **"Enable Tool Calling"** on
+4. Optionally enable/disable individual tools
+
+### Built-in Tools
+
+| Tool | Description | Example Use |
+|------|-------------|-------------|
+| `get_current_time` | Get current date/time with timezone support | "What time is it in Tokyo?" |
+| `calculate` | Mathematical calculations | "What is 15% of 250?" |
+| `random_number` | Generate random numbers | "Give me a random number between 1 and 100" |
+| `fetch_url` | Fetch content from URLs | "Summarize the content at this URL" |
+| `encode_text` | Base64/URL encoding/decoding | "Encode this text to base64" |
+| `generate_uuid` | Generate UUIDs | "Generate a UUID for me" |
+| `text_stats` | Text analysis (word count, etc.) | "How many words are in this paragraph?" |
+
+### Supported Models
+
+Tool calling requires models that support function calling:
+- **qwen3** (recommended)
+- **llama3.1**, **llama3.2**
+- **mistral**
+- **granite3-dense**
+
+### How It Works
+
+1. When tools are enabled, tool definitions are sent with your message
+2. The model decides if any tools would help answer your question
+3. If yes, the model generates tool calls instead of a direct response
+4. Neural Nexus executes the tools and sends results back to the model
+5. The model generates a final response using the tool results
+
+> **Note:** When tools are enabled, responses use non-streaming mode which may feel slightly slower, but enables the AI to use tools accurately.
+
 ## ⚠️ Known Limitations
 
 | Issue | Description | Workaround |
@@ -240,6 +282,7 @@ Neural Nexus can extract text from various document formats for AI analysis:
 | Image Support | Only works with multimodal models (llava, etc.) | Use a vision-capable model |
 | Token Limit | Responses truncated at `num_predict` tokens | Increase in Advanced Settings |
 | CORS Errors | Browser blocks Ollama API | App uses Vite proxy (dev mode) |
+| Tool Calling | Only works with compatible models | Use qwen3, llama3.1+, or mistral |
 
 ## 🐛 Reporting Issues
 

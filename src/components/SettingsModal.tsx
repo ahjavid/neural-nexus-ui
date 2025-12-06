@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Settings, X, RefreshCw, Sliders } from 'lucide-react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from './Button';
 import type { ModelParams } from '../types';
 import { formatBytes } from '../utils/helpers';
+import { toolRegistry } from '../utils/tools';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -17,6 +18,8 @@ interface SettingsModalProps {
   storageInfo: { used: number; quota: number; percent: string };
   onClearChats: () => void;
   onRefreshStorage: () => void;
+  toolsEnabled: boolean;
+  onToolsEnabledChange: (enabled: boolean) => void;
 }
 
 const defaultParams: ModelParams = {
@@ -46,9 +49,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onParamsChange,
   storageInfo,
   onClearChats,
-  onRefreshStorage
+  onRefreshStorage,
+  toolsEnabled,
+  onToolsEnabledChange
 }) => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [, forceUpdate] = useState({});
 
   if (!isOpen) return null;
 
@@ -102,6 +109,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Sliders size={16} />{advancedOpen ? 'Hide Advanced' : 'Show Advanced'}
             </button>
           </div>
+          
+          {/* Tools Toggle */}
+          <div className="pt-2 border-t border-gray-800">
+            <button 
+              onClick={() => setToolsOpen(!toolsOpen)} 
+              className="flex items-center gap-2 text-sm text-emerald-400 font-medium hover:text-emerald-300"
+            >
+              <Wrench size={16} />{toolsOpen ? 'Hide Tools' : 'Show Tools (Function Calling)'}
+            </button>
+          </div>
+          
+          {/* Tools Settings */}
+          {toolsOpen && (
+            <div className="space-y-4 pt-2">
+              {/* Global Toggle */}
+              <div className="flex items-center justify-between p-3 bg-[#09090b] rounded-lg border border-gray-800">
+                <div>
+                  <div className="text-sm font-medium text-gray-200">Enable Tool Calling</div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">Allow AI to use tools for enhanced capabilities</div>
+                </div>
+                <button
+                  onClick={() => onToolsEnabledChange(!toolsEnabled)}
+                  className={`transition-colors ${toolsEnabled ? 'text-emerald-400' : 'text-gray-600'}`}
+                >
+                  {toolsEnabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                </button>
+              </div>
+              
+              {toolsEnabled && (
+                <>
+                  <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Available Tools</div>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    {toolRegistry.getAllTools().map((tool) => (
+                      <div
+                        key={tool.definition.function.name}
+                        className={`p-3 rounded-lg border transition-colors ${
+                          tool.enabled 
+                            ? 'bg-emerald-500/10 border-emerald-500/30' 
+                            : 'bg-[#09090b] border-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-mono text-gray-200 truncate">
+                              {tool.definition.function.name}
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-1 line-clamp-2">
+                              {tool.definition.function.description}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              toolRegistry.setToolEnabled(tool.definition.function.name, !tool.enabled);
+                              toolRegistry.saveState();
+                              forceUpdate({});
+                            }}
+                            className={`shrink-0 transition-colors ${
+                              tool.enabled ? 'text-emerald-400' : 'text-gray-600'
+                            }`}
+                          >
+                            {tool.enabled ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="text-[10px] text-gray-600 bg-[#09090b] p-3 rounded-lg border border-gray-800">
+                    <strong className="text-gray-400">Note:</strong> Tool calling requires models that support function calling 
+                    (e.g., qwen3, llama3.1+, mistral). When enabled, responses may be slightly slower as the AI 
+                    decides whether to use tools.
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           
           {/* Advanced Settings */}
           {advancedOpen && (

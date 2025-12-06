@@ -106,3 +106,55 @@ export interface DocumentResult {
   sheetNames?: string[];
   messages?: unknown[];
 }
+
+// Tool calling types
+export interface ToolParameter {
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  description: string;
+  enum?: string[];
+}
+
+export interface ToolDefinition {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      required?: string[];
+      properties: Record<string, ToolParameter>;
+    };
+  };
+}
+
+export interface ToolCall {
+  type: 'function';
+  function: {
+    index?: number;
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
+export interface ToolResult {
+  role: 'tool';
+  tool_name: string;
+  content: string;
+}
+
+// Tool handler function type
+export type ToolHandler = (args: Record<string, unknown>) => Promise<string> | string;
+
+// Tool registry entry
+export interface RegisteredTool {
+  definition: ToolDefinition;
+  handler: ToolHandler;
+  enabled: boolean;
+}
+
+// Extended message type for tool calls
+export interface ToolMessage extends Omit<Message, 'role'> {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  tool_calls?: ToolCall[];
+  tool_name?: string;
+}
