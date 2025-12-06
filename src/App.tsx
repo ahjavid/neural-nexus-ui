@@ -919,8 +919,50 @@ export default function App() {
           ];
           
           // Stream the response with a notice about tool limitation
-          const toolNotice = '⚠️ **Note:** This model does not support tool calling. Continuing without tools...\n\n---\n\n';
-          await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
+          const toolNotice = '⚠️ **Note:** This model does not support tool calling. Attempting to parse tool calls from response...\n\n';
+          const streamedContent = await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
+          
+          // Check if the model output a JSON tool call in text format
+          const toolCallMatch = streamedContent.match(/\{\s*"name"\s*:\s*"(\w+)"\s*,\s*"arguments"\s*:\s*(\{[^}]+\})\s*\}/s);
+          if (toolCallMatch && toolsEnabled) {
+            const toolName = toolCallMatch[1];
+            const toolArgs = JSON.parse(toolCallMatch[2]);
+            
+            // Check if we have this tool
+            const toolDef = toolRegistry.getToolDefinitions().find(t => t.function.name === toolName);
+            if (toolDef) {
+              setExecutingTools(true);
+              
+              // Execute the tool
+              const toolCall: ToolCall = {
+                type: 'function',
+                function: { name: toolName, arguments: toolArgs }
+              };
+              const toolResults = await toolRegistry.executeToolCalls([toolCall]);
+              
+              setExecutingTools(false);
+              
+              // Update the message with tool result
+              const toolResultContent = `\n\n---\n\n**🔧 Tool Result (${toolName}):**\n${toolResults[0].result}`;
+              
+              setSessions(prev => prev.map(s => {
+                if (s.id === currentSessionId) {
+                  const lastMsg = s.messages[s.messages.length - 1];
+                  if (lastMsg && lastMsg.role === 'assistant') {
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    return {
+                      ...s,
+                      messages: [
+                        ...s.messages.slice(0, -1),
+                        { ...lastMsg, content: lastMsg.content + toolResultContent, timing: elapsed.toFixed(1) }
+                      ]
+                    };
+                  }
+                }
+                return s;
+              }));
+            }
+          }
         }
       } else {
         // No tools, use streaming as before
