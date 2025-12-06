@@ -3,8 +3,13 @@ import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import type { DocumentResult, KnowledgeChunk } from '../types';
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker using Web Worker with module type
+if (typeof window !== 'undefined' && 'Worker' in window) {
+  pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(
+    new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url),
+    { type: 'module' }
+  );
+}
 
 // ============================================
 // Text Chunking for RAG
