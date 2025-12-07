@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.5-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.6-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -538,6 +538,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.6 (December 2024)
+- **Enhanced Neurosymbolic Search** - Implemented BM25 sparse retrieval, Reciprocal Rank Fusion (RRF), and Maximal Marginal Relevance (MMR)
+- **BM25 Keyword Scoring** - TF-IDF style keyword matching complements embedding-based semantic search
+- **RRF Fusion** - More robust rank combination than weighted sum, used by Google for hybrid retrieval
+- **MMR Diversity** - Reduces redundancy in search results by balancing relevance with diversity
+- **New `enhancedHybridSearch` API** - Full pipeline combining BM25 + RRF + MMR with configurable options
 
 ### v1.1.5 (December 2024)
 - **Professional UI Refinements** - More compact chatbox with reduced padding and sizing

@@ -5,6 +5,7 @@ export { toolRegistry, ToolRegistry, getLastSearchExplanation, clearEmbeddingCac
 
 // Neurosymbolic AI exports
 export {
+  // Core functions
   extractEntities,
   extractKeywords,
   extractPhrases,
@@ -13,6 +14,15 @@ export {
   buildReasoningChain,
   formatReasoningChain,
   decomposeQuery,
+  cosineSimilarity,
+  // Enhanced search with BM25, RRF, MMR
+  BM25,
+  reciprocalRankFusion,
+  fuseWithRRF,
+  mmrRerank,
+  diversityFilter,
+  enhancedHybridSearch,
+  // Types
   type EntityType,
   type ExtractedEntity,
   type EntityExtractionResult,
@@ -24,5 +34,12 @@ export {
   type HybridSearchOptions,
   type SearchResultExplanation,
   type ReasoningStep,
-  type ReasoningChain
+  type ReasoningChain,
+  type BM25Config,
+  type RRFOptions,
+  type RankedItem,
+  type MMROptions,
+  type MMRItem,
+  type EnhancedHybridSearchOptions
 } from './neurosymbolic';
+

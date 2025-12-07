@@ -833,7 +833,7 @@ export const hybridSearch = async (
 /**
  * Cosine similarity between two vectors
  */
-const cosineSimilarity = (a: number[], b: number[]): number => {
+export const cosineSimilarity = (a: number[], b: number[]): number => {
   if (a.length !== b.length) return 0;
   
   let dotProduct = 0;
@@ -1031,9 +1031,756 @@ export const formatReasoningChain = (chain: ReasoningChain): string => {
 };
 
 // ============================================
-// Exports for integration
+// BM25 Sparse Retrieval
 // ============================================
 
-export {
-  cosineSimilarity
+export interface BM25Config {
+  k1: number;      // Term frequency saturation parameter (1.2-2.0 typical)
+  b: number;       // Length normalization parameter (0.75 typical)
+}
+
+const DEFAULT_BM25_CONFIG: BM25Config = {
+  k1: 1.5,
+  b: 0.75
 };
+
+/**
+ * BM25 (Best Match 25) implementation for sparse keyword retrieval
+ * 
+ * BM25 is a ranking function used for keyword-based information retrieval.
+ * It considers term frequency, document length, and inverse document frequency.
+ */
+export class BM25 {
+  private documents: Array<{ id: string; tokens: string[]; content: string }> = [];
+  private avgDocLength = 0;
+  private docFreq: Map<string, number> = new Map(); // How many docs contain each term
+  private config: BM25Config;
+
+  constructor(config: Partial<BM25Config> = {}) {
+    this.config = { ...DEFAULT_BM25_CONFIG, ...config };
+  }
+
+  /**
+   * Tokenize text into lowercase terms, filtering stopwords
+   */
+  private tokenize(text: string): string[] {
+    return text.toLowerCase()
+      .replace(/[^\w\s-]/g, ' ')
+      .split(/\s+/)
+      .filter(word => 
+        word.length > 2 && 
+        !STOPWORDS.has(word) && 
+        !/^\d+$/.test(word)
+      );
+  }
+
+  /**
+   * Build index from documents
+   */
+  index(documents: Array<{ id: string; content: string }>): void {
+    this.documents = [];
+    this.docFreq.clear();
+    
+    let totalLength = 0;
+    const termSeen = new Set<string>();
+
+    for (const doc of documents) {
+      const tokens = this.tokenize(doc.content);
+      this.documents.push({ id: doc.id, tokens, content: doc.content });
+      totalLength += tokens.length;
+
+      // Track document frequency (how many docs contain each term)
+      termSeen.clear();
+      for (const token of tokens) {
+        if (!termSeen.has(token)) {
+          termSeen.add(token);
+          this.docFreq.set(token, (this.docFreq.get(token) || 0) + 1);
+        }
+      }
+    }
+
+    this.avgDocLength = this.documents.length > 0 ? totalLength / this.documents.length : 0;
+  }
+
+  /**
+   * Calculate IDF (Inverse Document Frequency) for a term
+   */
+  private idf(term: string): number {
+    const n = this.documents.length;
+    const df = this.docFreq.get(term) || 0;
+    // Standard IDF with smoothing to avoid division by zero
+    return Math.log((n - df + 0.5) / (df + 0.5) + 1);
+  }
+
+  /**
+   * Calculate BM25 score for a query against all indexed documents
+   */
+  search(query: string, limit = 10): Array<{ id: string; score: number; content: string }> {
+    const queryTokens = this.tokenize(query);
+    const scores: Array<{ id: string; score: number; content: string }> = [];
+
+    for (const doc of this.documents) {
+      let score = 0;
+      
+      // Count term frequencies in document
+      const termFreq: Map<string, number> = new Map();
+      for (const token of doc.tokens) {
+        termFreq.set(token, (termFreq.get(token) || 0) + 1);
+      }
+
+      // Calculate BM25 score for each query term
+      for (const term of queryTokens) {
+        const tf = termFreq.get(term) || 0;
+        if (tf === 0) continue;
+
+        const idf = this.idf(term);
+        const docLen = doc.tokens.length;
+        const { k1, b } = this.config;
+
+        // BM25 formula
+        const numerator = tf * (k1 + 1);
+        const denominator = tf + k1 * (1 - b + b * (docLen / this.avgDocLength));
+        score += idf * (numerator / denominator);
+      }
+
+      if (score > 0) {
+        scores.push({ id: doc.id, score, content: doc.content });
+      }
+    }
+
+    // Sort by score descending and return top results
+    return scores.sort((a, b) => b.score - a.score).slice(0, limit);
+  }
+
+  /**
+   * Get BM25 score for a specific document
+   */
+  scoreDocument(query: string, docId: string): number {
+    const queryTokens = this.tokenize(query);
+    const doc = this.documents.find(d => d.id === docId);
+    if (!doc) return 0;
+
+    // Count term frequencies
+    const termFreq: Map<string, number> = new Map();
+    for (const token of doc.tokens) {
+      termFreq.set(token, (termFreq.get(token) || 0) + 1);
+    }
+
+    let score = 0;
+    for (const term of queryTokens) {
+      const tf = termFreq.get(term) || 0;
+      if (tf === 0) continue;
+
+      const idf = this.idf(term);
+      const docLen = doc.tokens.length;
+      const { k1, b } = this.config;
+
+      const numerator = tf * (k1 + 1);
+      const denominator = tf + k1 * (1 - b + b * (docLen / this.avgDocLength));
+      score += idf * (numerator / denominator);
+    }
+
+    return score;
+  }
+}
+
+// ============================================
+// Reciprocal Rank Fusion (RRF)
+// ============================================
+
+export interface RRFOptions {
+  k: number;  // RRF constant (60 is standard, higher = more weight to lower ranks)
+}
+
+const DEFAULT_RRF_OPTIONS: RRFOptions = {
+  k: 60
+};
+
+export interface RankedItem {
+  id: string;
+  score: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Reciprocal Rank Fusion (RRF) combines multiple ranking lists into a single ranking.
+ * 
+ * RRF is more robust than simple weighted sum because it uses ranks instead of raw scores,
+ * making it less sensitive to score distribution differences between ranking methods.
+ * 
+ * Formula: RRF(d) = Σ (1 / (k + rank_i(d))) for each ranking list i
+ */
+export const reciprocalRankFusion = <T extends RankedItem>(
+  rankingLists: T[][],
+  options: Partial<RRFOptions> = {}
+): T[] => {
+  const opts = { ...DEFAULT_RRF_OPTIONS, ...options };
+  const { k } = opts;
+
+  // Map to accumulate RRF scores per document
+  const rrfScores: Map<string, { item: T; score: number }> = new Map();
+
+  for (const rankedList of rankingLists) {
+    for (let rank = 0; rank < rankedList.length; rank++) {
+      const item = rankedList[rank];
+      const rrfContribution = 1 / (k + rank + 1); // +1 because ranks are 1-indexed in RRF formula
+
+      const existing = rrfScores.get(item.id);
+      if (existing) {
+        existing.score += rrfContribution;
+      } else {
+        rrfScores.set(item.id, { item: { ...item }, score: rrfContribution });
+      }
+    }
+  }
+
+  // Convert to array, sort by RRF score, and update item scores
+  const results = Array.from(rrfScores.values())
+    .map(({ item, score }) => ({ ...item, score }))
+    .sort((a, b) => b.score - a.score);
+
+  return results;
+};
+
+/**
+ * Fuse hybrid search signals using RRF instead of weighted sum
+ * 
+ * @param signals - Object with arrays of results from different ranking methods
+ * @param options - RRF configuration options
+ */
+export const fuseWithRRF = (
+  signals: {
+    semantic: Array<{ id: string; score: number }>;
+    bm25: Array<{ id: string; score: number }>;
+    entity: Array<{ id: string; score: number }>;
+    graph: Array<{ id: string; score: number }>;
+  },
+  options: Partial<RRFOptions> = {}
+): Array<{ id: string; score: number }> => {
+  const rankingLists: Array<Array<{ id: string; score: number }>> = [];
+
+  // Only include non-empty ranking lists
+  if (signals.semantic.length > 0) rankingLists.push(signals.semantic);
+  if (signals.bm25.length > 0) rankingLists.push(signals.bm25);
+  if (signals.entity.length > 0) rankingLists.push(signals.entity);
+  if (signals.graph.length > 0) rankingLists.push(signals.graph);
+
+  if (rankingLists.length === 0) return [];
+
+  return reciprocalRankFusion(rankingLists, options);
+};
+
+// ============================================
+// Maximal Marginal Relevance (MMR)
+// ============================================
+
+export interface MMROptions {
+  lambda: number;           // Trade-off: 0 = diversity, 1 = relevance (0.5-0.7 typical)
+  diversityThreshold: number; // Minimum similarity to consider as duplicate
+}
+
+const DEFAULT_MMR_OPTIONS: MMROptions = {
+  lambda: 0.7,
+  diversityThreshold: 0.85
+};
+
+export interface MMRItem {
+  id: string;
+  score: number;
+  embedding?: number[];
+  content: string;
+}
+
+/**
+ * Maximal Marginal Relevance (MMR) reranking for result diversification.
+ * 
+ * MMR balances relevance (similarity to query) with diversity (dissimilarity 
+ * to already selected documents). This reduces redundancy in search results.
+ * 
+ * Formula: MMR = λ * sim(doc, query) - (1-λ) * max(sim(doc, selected_docs))
+ * 
+ * @param results - Initial ranked results (sorted by relevance)
+ * @param _queryEmbedding - The query embedding (unused - relevance from results.score)
+ * @param embeddings - Map of document ID to embedding vectors
+ * @param k - Number of results to return
+ * @param options - MMR configuration
+ */
+export const mmrRerank = (
+  results: MMRItem[],
+  _queryEmbedding: number[],
+  embeddings: Map<string, number[]>,
+  k: number,
+  options: Partial<MMROptions> = {}
+): MMRItem[] => {
+  const opts = { ...DEFAULT_MMR_OPTIONS, ...options };
+  const { lambda } = opts;
+
+  if (results.length === 0) return [];
+  if (results.length <= k) return results;
+
+  const selected: MMRItem[] = [];
+  const remaining = [...results];
+
+  // Select first result (highest relevance)
+  selected.push(remaining.shift()!);
+
+  // Iteratively select remaining results using MMR criterion
+  while (selected.length < k && remaining.length > 0) {
+    let bestIndex = -1;
+    let bestScore = -Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidate = remaining[i];
+      const candidateEmb = embeddings.get(candidate.id) || candidate.embedding;
+
+      if (!candidateEmb) {
+        // If no embedding, fall back to content-based similarity using Jaccard
+        const mmrScore = computeMMRWithoutEmbedding(
+          candidate, 
+          selected, 
+          lambda
+        );
+        if (mmrScore > bestScore) {
+          bestScore = mmrScore;
+          bestIndex = i;
+        }
+        continue;
+      }
+
+      // Relevance: similarity to query (normalized score from results)
+      const relevance = candidate.score;
+
+      // Diversity: max similarity to any already selected document
+      let maxSimToSelected = 0;
+      for (const sel of selected) {
+        const selEmb = embeddings.get(sel.id) || sel.embedding;
+        if (selEmb) {
+          const sim = cosineSimilarity(candidateEmb, selEmb);
+          maxSimToSelected = Math.max(maxSimToSelected, sim);
+        }
+      }
+
+      // MMR score
+      const mmrScore = lambda * relevance - (1 - lambda) * maxSimToSelected;
+
+      if (mmrScore > bestScore) {
+        bestScore = mmrScore;
+        bestIndex = i;
+      }
+    }
+
+    if (bestIndex >= 0) {
+      selected.push(remaining.splice(bestIndex, 1)[0]);
+    } else {
+      break;
+    }
+  }
+
+  return selected;
+};
+
+/**
+ * Compute MMR score without embeddings using content-based Jaccard similarity
+ */
+const computeMMRWithoutEmbedding = (
+  candidate: MMRItem,
+  selected: MMRItem[],
+  lambda: number
+): number => {
+  const relevance = candidate.score;
+  
+  // Calculate content-based similarity using word overlap
+  const candidateWords = new Set(
+    candidate.content.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+  );
+
+  let maxSimToSelected = 0;
+  for (const sel of selected) {
+    const selWords = new Set(
+      sel.content.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+    );
+    const sim = jaccardSimilarity(candidateWords, selWords);
+    maxSimToSelected = Math.max(maxSimToSelected, sim);
+  }
+
+  return lambda * relevance - (1 - lambda) * maxSimToSelected;
+};
+
+/**
+ * Quick diversity filter - removes near-duplicate results
+ */
+export const diversityFilter = (
+  results: MMRItem[],
+  embeddings: Map<string, number[]>,
+  threshold: number = 0.9
+): MMRItem[] => {
+  const filtered: MMRItem[] = [];
+
+  for (const result of results) {
+    const resultEmb = embeddings.get(result.id) || result.embedding;
+    let isDuplicate = false;
+
+    for (const kept of filtered) {
+      const keptEmb = embeddings.get(kept.id) || kept.embedding;
+      
+      if (resultEmb && keptEmb) {
+        const sim = cosineSimilarity(resultEmb, keptEmb);
+        if (sim > threshold) {
+          isDuplicate = true;
+          break;
+        }
+      } else {
+        // Fallback to content-based similarity
+        const resultWords = new Set(result.content.toLowerCase().split(/\s+/));
+        const keptWords = new Set(kept.content.toLowerCase().split(/\s+/));
+        const sim = jaccardSimilarity(resultWords, keptWords);
+        if (sim > threshold) {
+          isDuplicate = true;
+          break;
+        }
+      }
+    }
+
+    if (!isDuplicate) {
+      filtered.push(result);
+    }
+  }
+
+  return filtered;
+};
+
+// ============================================
+// Enhanced Hybrid Search with BM25, RRF & MMR
+// ============================================
+
+export interface EnhancedHybridSearchOptions extends HybridSearchOptions {
+  useBM25?: boolean;
+  useRRF?: boolean;
+  useMMR?: boolean;
+  bm25Config?: Partial<BM25Config>;
+  rrfK?: number;
+  mmrLambda?: number;
+  diversityThreshold?: number;
+}
+
+const DEFAULT_ENHANCED_OPTIONS: Required<Omit<EnhancedHybridSearchOptions, keyof HybridSearchOptions>> = {
+  useBM25: true,
+  useRRF: true,
+  useMMR: true,
+  bm25Config: {},
+  rrfK: 60,
+  mmrLambda: 0.7,
+  diversityThreshold: 0.85
+};
+
+/**
+ * Enhanced hybrid search combining:
+ * - Semantic search (neural embeddings)
+ * - BM25 sparse retrieval (keyword matching)
+ * - Entity matching (symbolic)
+ * - Knowledge graph scoring
+ * - Reciprocal Rank Fusion (combining signals)
+ * - MMR reranking (diversity)
+ */
+export const enhancedHybridSearch = async (
+  query: string,
+  graph: KnowledgeGraph,
+  getQueryEmbedding: (text: string) => Promise<number[]>,
+  nodeEmbeddings: Map<string, number[]>,
+  options: EnhancedHybridSearchOptions = {}
+): Promise<HybridSearchResult[]> => {
+  const searchOpts = { ...DEFAULT_SEARCH_OPTIONS, ...options };
+  const enhancedOpts = { ...DEFAULT_ENHANCED_OPTIONS, ...options };
+
+  // Extract entities and keywords from query
+  const queryExtraction = extractEntities(query);
+  
+  // Detect comparison operators for money queries
+  const lowerQuery = query.toLowerCase();
+  const overMatch = lowerQuery.match(/(?:over|above|greater than|more than|>)\s*\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+  const underMatch = lowerQuery.match(/(?:under|below|less than|<)\s*\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+  const moneyGreaterThan = overMatch ? parseFloat(overMatch[1].replace(/,/g, '')) : null;
+  const moneyLessThan = underMatch ? parseFloat(underMatch[1].replace(/,/g, '')) : null;
+
+  // Get query embedding
+  const queryEmbedding = await getQueryEmbedding(query);
+
+  // Build separate ranking lists for RRF
+  const semanticRanking: Array<{ id: string; score: number; node: KnowledgeNode }> = [];
+  const bm25Ranking: Array<{ id: string; score: number; node: KnowledgeNode }> = [];
+  const entityRanking: Array<{ id: string; score: number; node: KnowledgeNode }> = [];
+  const graphRanking: Array<{ id: string; score: number; node: KnowledgeNode }> = [];
+
+  // Build BM25 index if enabled
+  let bm25: BM25 | null = null;
+  if (enhancedOpts.useBM25) {
+    bm25 = new BM25(enhancedOpts.bm25Config);
+    const docs = Array.from(graph.nodes.entries()).map(([id, node]) => ({
+      id,
+      content: node.content
+    }));
+    bm25.index(docs);
+  }
+
+  // Score each node
+  for (const [nodeId, node] of graph.nodes) {
+    // 1. Semantic similarity (neural)
+    const nodeEmbedding = nodeEmbeddings.get(nodeId);
+    const semanticScore = nodeEmbedding ? cosineSimilarity(queryEmbedding, nodeEmbedding) : 0;
+    if (semanticScore > 0) {
+      semanticRanking.push({ id: nodeId, score: semanticScore, node });
+    }
+
+    // 2. BM25 scoring (sparse retrieval)
+    if (bm25) {
+      const bm25Score = bm25.scoreDocument(query, nodeId);
+      if (bm25Score > 0) {
+        bm25Ranking.push({ id: nodeId, score: bm25Score, node });
+      }
+    }
+
+    // 3. Entity matching (symbolic)
+    let entityScore = 0;
+    const entityMatches: Array<{ type: EntityType; value: string; boost: number }> = [];
+
+    // Handle money comparison operators
+    if (moneyGreaterThan !== null || moneyLessThan !== null) {
+      const moneyEntities = node.entities.filter(e => e.type === 'money' && typeof e.normalized === 'number');
+      for (const mEntity of moneyEntities) {
+        const amount = mEntity.normalized as number;
+        if (moneyGreaterThan !== null && amount > moneyGreaterThan) {
+          const boost = (searchOpts.entityBoost['money'] || 1.0) * 2.5;
+          entityScore += boost;
+          entityMatches.push({ type: 'money', value: `${mEntity.value} (>${moneyGreaterThan})`, boost });
+        } else if (moneyLessThan !== null && amount < moneyLessThan) {
+          const boost = (searchOpts.entityBoost['money'] || 1.0) * 2.5;
+          entityScore += boost;
+          entityMatches.push({ type: 'money', value: `${mEntity.value} (<${moneyLessThan})`, boost });
+        }
+      }
+    }
+
+    // Standard entity matching
+    for (const qEntity of queryExtraction.entities) {
+      for (const nEntity of node.entities) {
+        if (qEntity.type === nEntity.type) {
+          if (qEntity.type === 'money' && (moneyGreaterThan !== null || moneyLessThan !== null)) {
+            continue;
+          }
+          const qVal = (qEntity.normalized || qEntity.value).toString().toLowerCase();
+          const nVal = (nEntity.normalized || nEntity.value).toString().toLowerCase();
+          if (qVal === nVal || nVal.includes(qVal) || qVal.includes(nVal)) {
+            const boost = searchOpts.entityBoost[qEntity.type] || 1.0;
+            entityScore += boost;
+            entityMatches.push({ type: qEntity.type, value: nEntity.value, boost });
+          }
+        }
+      }
+    }
+
+    if (entityScore > 0) {
+      const normalizer = Math.max(queryExtraction.entities.length, (moneyGreaterThan !== null || moneyLessThan !== null) ? 1 : 0);
+      entityRanking.push({ id: nodeId, score: Math.min(1, entityScore / (normalizer || 1)), node });
+    }
+
+    // 4. Graph-based scoring
+    let graphScore = 0;
+    for (const relation of node.relations) {
+      const connectedNodeId = relation.sourceId === nodeId ? relation.targetId : relation.sourceId;
+      const connectedNode = graph.nodes.get(connectedNodeId);
+      if (connectedNode) {
+        const hasRelevantEntities = connectedNode.entities.some(e =>
+          queryExtraction.entities.some(qe =>
+            qe.type === e.type &&
+            (qe.normalized || qe.value).toString().toLowerCase() ===
+            (e.normalized || e.value).toString().toLowerCase()
+          )
+        );
+        if (hasRelevantEntities) {
+          graphScore += relation.weight * 0.5;
+        }
+      }
+    }
+    if (graphScore > 0) {
+      graphRanking.push({ id: nodeId, score: Math.min(1, graphScore), node });
+    }
+  }
+
+  // Sort each ranking by score
+  semanticRanking.sort((a, b) => b.score - a.score);
+  bm25Ranking.sort((a, b) => b.score - a.score);
+  entityRanking.sort((a, b) => b.score - a.score);
+  graphRanking.sort((a, b) => b.score - a.score);
+
+  console.log('📊 Ranking list sizes:', {
+    semantic: semanticRanking.length,
+    bm25: bm25Ranking.length,
+    entity: entityRanking.length,
+    graph: graphRanking.length
+  });
+
+  // Combine rankings
+  let combinedResults: Array<{ id: string; score: number; node: KnowledgeNode }>;
+
+  if (enhancedOpts.useRRF) {
+    // Use Reciprocal Rank Fusion
+    const fusedRanking = fuseWithRRF({
+      semantic: semanticRanking.map(r => ({ id: r.id, score: r.score })),
+      bm25: bm25Ranking.map(r => ({ id: r.id, score: r.score })),
+      entity: entityRanking.map(r => ({ id: r.id, score: r.score })),
+      graph: graphRanking.map(r => ({ id: r.id, score: r.score }))
+    }, { k: enhancedOpts.rrfK });
+
+    // Map back to full results with nodes
+    const nodeMap = new Map<string, KnowledgeNode>();
+    for (const [nodeId, node] of graph.nodes) {
+      nodeMap.set(nodeId, node);
+    }
+
+    combinedResults = fusedRanking.map(r => ({
+      id: r.id,
+      score: r.score,
+      node: nodeMap.get(r.id)!
+    })).filter(r => r.node);
+
+    console.log('🔗 RRF fusion completed:', combinedResults.length, 'results');
+  } else {
+    // Fall back to weighted sum (original behavior)
+    const scoreMap = new Map<string, { score: number; node: KnowledgeNode }>();
+
+    for (const r of semanticRanking) {
+      scoreMap.set(r.id, { score: searchOpts.semanticWeight * r.score, node: r.node });
+    }
+    for (const r of bm25Ranking) {
+      const existing = scoreMap.get(r.id);
+      const bm25Weight = searchOpts.keywordWeight; // Use keyword weight for BM25
+      if (existing) {
+        existing.score += bm25Weight * r.score;
+      } else {
+        scoreMap.set(r.id, { score: bm25Weight * r.score, node: r.node });
+      }
+    }
+    for (const r of entityRanking) {
+      const existing = scoreMap.get(r.id);
+      if (existing) {
+        existing.score += searchOpts.entityWeight * r.score;
+      } else {
+        scoreMap.set(r.id, { score: searchOpts.entityWeight * r.score, node: r.node });
+      }
+    }
+    for (const r of graphRanking) {
+      const existing = scoreMap.get(r.id);
+      if (existing) {
+        existing.score += searchOpts.graphWeight * r.score;
+      } else {
+        scoreMap.set(r.id, { score: searchOpts.graphWeight * r.score, node: r.node });
+      }
+    }
+
+    combinedResults = Array.from(scoreMap.entries())
+      .map(([id, { score, node }]) => ({ id, score, node }))
+      .sort((a, b) => b.score - a.score);
+  }
+
+  // Apply MMR reranking for diversity
+  if (enhancedOpts.useMMR && combinedResults.length > 0) {
+    const mmrInput: MMRItem[] = combinedResults.map(r => ({
+      id: r.id,
+      score: r.score,
+      content: r.node.content,
+      embedding: nodeEmbeddings.get(r.id)
+    }));
+
+    const diverseResults = mmrRerank(
+      mmrInput,
+      queryEmbedding,
+      nodeEmbeddings,
+      searchOpts.topK * 2, // Get more than needed, then filter
+      { lambda: enhancedOpts.mmrLambda, diversityThreshold: enhancedOpts.diversityThreshold }
+    );
+
+    combinedResults = diverseResults.map(r => ({
+      id: r.id,
+      score: r.score,
+      node: graph.nodes.get(r.id)!
+    })).filter(r => r.node);
+
+    console.log('🎯 MMR reranking applied:', combinedResults.length, 'diverse results');
+  }
+
+  // Build final results with explanations
+  const finalResults: HybridSearchResult[] = [];
+
+  for (const result of combinedResults.slice(0, searchOpts.topK)) {
+    const node = result.node;
+    const nodeEmbedding = nodeEmbeddings.get(result.id);
+
+    const explanation: SearchResultExplanation = {
+      semanticScore: nodeEmbedding ? cosineSimilarity(queryEmbedding, nodeEmbedding) : 0,
+      entityMatches: [],
+      keywordMatches: [],
+      graphConnections: []
+    };
+
+    // Rebuild entity matches for explanation
+    for (const qEntity of queryExtraction.entities) {
+      for (const nEntity of node.entities) {
+        if (qEntity.type === nEntity.type) {
+          const qVal = (qEntity.normalized || qEntity.value).toString().toLowerCase();
+          const nVal = (nEntity.normalized || nEntity.value).toString().toLowerCase();
+          if (qVal === nVal || nVal.includes(qVal) || qVal.includes(nVal)) {
+            explanation.entityMatches.push({
+              type: qEntity.type,
+              value: nEntity.value,
+              boost: searchOpts.entityBoost[qEntity.type] || 1.0
+            });
+          }
+        }
+      }
+    }
+
+    // Keyword matches
+    const queryKeywords = new Set(queryExtraction.keywords);
+    explanation.keywordMatches = [...queryKeywords].filter(k => 
+      new Set(node.keywords).has(k)
+    );
+
+    // Graph connections
+    for (const relation of node.relations) {
+      const connectedNodeId = relation.sourceId === result.id ? relation.targetId : relation.sourceId;
+      const connectedNode = graph.nodes.get(connectedNodeId);
+      if (connectedNode) {
+        const hasRelevantEntities = connectedNode.entities.some(e =>
+          queryExtraction.entities.some(qe =>
+            qe.type === e.type &&
+            (qe.normalized || qe.value).toString().toLowerCase() ===
+            (e.normalized || e.value).toString().toLowerCase()
+          )
+        );
+        if (hasRelevantEntities) {
+          explanation.graphConnections.push({
+            nodeId: connectedNodeId,
+            relationType: relation.type,
+            weight: relation.weight
+          });
+        }
+      }
+    }
+
+    if (result.score >= searchOpts.minScore) {
+      finalResults.push({
+        nodeId: result.id,
+        content: node.content,
+        title: node.title,
+        score: result.score,
+        explanation
+      });
+    }
+  }
+
+  return finalResults;
+};
+
+// Note: BM25, reciprocalRankFusion, fuseWithRRF, mmrRerank, diversityFilter, 
+// enhancedHybridSearch are exported at their declarations above.
+// cosineSimilarity is a private function used internally.

@@ -49,3 +49,6 @@ coverage/
 # Misc
 *.local
 .cache/
+
+# GitHub Copilot
+.github/copilot-instructions.md
