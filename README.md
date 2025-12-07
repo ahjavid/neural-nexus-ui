@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.14-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.16-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -538,6 +538,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.16 (December 2025)
+- **Unified Streaming with Tools + Thinking** - Single API request now handles streaming, tools, and extended thinking together
+- **Real-Time Thinking Display** - Thinking tokens stream in real-time (no more waiting for content to start)
+- **Improved Thinking Box UX** - Better contrast with neutral slate colors instead of low-contrast purple
+- **Code Cleanup** - Removed redundant executeChat and streamChat functions
+
+### v1.1.15 (December 2025)
+- **Extended Thinking Support** - Added thinking mode for models that support extended reasoning (e.g., qwen3:8b)
+- **Thinking Process Display** - Collapsible "Thinking Process" block shows model's reasoning
+- **Model Capabilities Detection** - Auto-detects model features (vision, tools, thinking) via /api/show
+- **Settings Toggle** - Enable/disable extended thinking in settings panel
 
 ### v1.1.14 (December 2025)
 - **Mobile Responsive UI** - Complete mobile optimization for all components
