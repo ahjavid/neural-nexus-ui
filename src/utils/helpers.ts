@@ -141,21 +141,24 @@ export const manageContext = (
   config: Partial<ContextConfig> = {}
 ): ContextResult => {
   const {
-    maxContextTokens = 6144,      // Default: leave room for 2k response in 8k context
-    reserveForResponse = 2048,
+    maxContextTokens = 8192,      // Total context window
+    reserveForResponse = 2048,    // Leave room for model response
     keepFirstMessages = 2,
     keepLastMessages = 10
   } = config;
 
   const systemTokens = estimateTokens(systemPrompt);
-  const availableTokens = maxContextTokens - systemTokens - reserveForResponse;
+  const totalMsgTokens = estimateMessagesTokens(messages);
+  const totalTokens = systemTokens + totalMsgTokens;
+  
+  // Available tokens for messages (after system prompt and response reserve)
+  const availableForMessages = maxContextTokens - systemTokens - reserveForResponse;
   
   // If no trimming needed, return as-is
-  const totalMsgTokens = estimateMessagesTokens(messages);
-  if (totalMsgTokens <= availableTokens) {
+  if (totalMsgTokens <= availableForMessages) {
     return {
       messages,
-      totalTokens: systemTokens + totalMsgTokens,
+      totalTokens,
       trimmedCount: 0
     };
   }
@@ -170,18 +173,19 @@ export const manageContext = (
   const uniqueLastMsgs = lastMsgs.filter((_, i) => !firstIds.has(lastStartIdx + i));
   
   const trimmedMessages = [...firstMsgs, ...uniqueLastMsgs];
-  const trimmedTokens = estimateMessagesTokens(trimmedMessages);
+  const trimmedMsgTokens = estimateMessagesTokens(trimmedMessages);
   const trimmedCount = messages.length - trimmedMessages.length;
   
-  // Check if still over limit
+  // Only warn if STILL over limit after trimming
   let warning: string | undefined;
-  if (trimmedTokens > availableTokens) {
-    warning = `Context still large (~${trimmedTokens} tokens). Consider starting a new chat.`;
+  if (trimmedMsgTokens > availableForMessages) {
+    const totalAfterTrim = systemTokens + trimmedMsgTokens;
+    warning = `Context still large (~${totalAfterTrim} tokens of ${maxContextTokens}). Consider starting a new chat.`;
   }
 
   return {
     messages: trimmedMessages,
-    totalTokens: systemTokens + trimmedTokens,
+    totalTokens: systemTokens + trimmedMsgTokens,
     trimmedCount,
     warning
   };

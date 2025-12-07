@@ -959,8 +959,8 @@ export default function App() {
         enhancedSystemPrompt,
         updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images })),
         {
-          maxContextTokens: params.num_ctx - params.num_predict, // Leave room for response
-          reserveForResponse: params.num_predict,
+          maxContextTokens: params.num_ctx,      // Total context window
+          reserveForResponse: params.num_predict, // Reserve for response
           keepFirstMessages: 2,  // Keep initial context
           keepLastMessages: 12   // Keep recent conversation
         }
