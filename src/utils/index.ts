@@ -16,7 +16,22 @@ export {
   type SemanticChunkOptions,
   type EnhancedKnowledgeChunk
 } from './documents';
-export { formatBytes, formatFileSize, getFileExtension, FILE_CONFIG, DEFAULT_PARAMS, getApiUrl } from './helpers';
+export { 
+  formatBytes, 
+  formatFileSize, 
+  getFileExtension, 
+  FILE_CONFIG, 
+  DEFAULT_PARAMS, 
+  getApiUrl,
+  // Context management
+  estimateTokens,
+  estimateMessagesTokens,
+  manageContext,
+  formatTokenCount,
+  getContextUsage,
+  type ContextConfig,
+  type ContextResult
+} from './helpers';
 export { toolRegistry, ToolRegistry, getLastSearchExplanation, clearEmbeddingCache } from './tools';
 
 // Neurosymbolic AI exports

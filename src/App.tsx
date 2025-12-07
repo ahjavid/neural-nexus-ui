@@ -22,7 +22,13 @@ const HelpModal = lazy(() => import('./components/HelpModal'));
 // Utils
 import { dbManager, migrateFromLocalStorage } from './utils/storage';
 import { processDocument } from './utils/documents';
-import { formatFileSize, getApiUrl } from './utils/helpers';
+import { 
+  formatFileSize, 
+  getApiUrl, 
+  manageContext, 
+  estimateTokens, 
+  formatTokenCount
+} from './utils/helpers';
 import { toolRegistry, clearEmbeddingCache } from './utils/tools';
 
 // Types
@@ -77,7 +83,7 @@ const defaultParams: ModelParams = {
   top_p: 0.9,
   repeat_penalty: 1.1,
   num_predict: 2048,
-  num_ctx: 4096,
+  num_ctx: 8192,  // Increased from 4096 for better context handling
   seed: -1,
   mirostat: 0,
   mirostat_tau: 5.0,
@@ -142,6 +148,9 @@ export default function App() {
   // State: File handling
   const [fileError, setFileError] = useState<string | null>(null);
   const [processingFiles, setProcessingFiles] = useState<string[]>([]);
+
+  // State: Context management
+  const [contextUsage, setContextUsage] = useState<{ tokens: number; percent: number; status: 'ok' | 'warning' | 'critical' } | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -260,6 +269,27 @@ export default function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [sessions, currentSessionId, streaming]);
+
+  // Track context usage when messages change
+  useEffect(() => {
+    if (!messages.length) {
+      setContextUsage(null);
+      return;
+    }
+    
+    // Estimate tokens for current conversation
+    const systemTokens = estimateTokens(systemPrompt);
+    const msgTokens = messages.reduce((total, msg) => total + estimateTokens(msg.content) + 4, 0);
+    const totalTokens = systemTokens + msgTokens;
+    const maxTokens = params.num_ctx;
+    const percent = Math.round((totalTokens / maxTokens) * 100);
+    
+    let status: 'ok' | 'warning' | 'critical' = 'ok';
+    if (percent >= 85) status = 'critical';
+    else if (percent >= 60) status = 'warning';
+    
+    setContextUsage({ tokens: totalTokens, percent, status });
+  }, [messages, systemPrompt, params.num_ctx]);
 
   // Check connection on mount
   useEffect(() => {
@@ -924,11 +954,33 @@ export default function App() {
         enhancedSystemPrompt += kbContext;
       }
       
-      // Build chat messages for API
+      // Apply context management - trim messages if context is too large
+      const contextResult = manageContext(
+        enhancedSystemPrompt,
+        updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images })),
+        {
+          maxContextTokens: params.num_ctx - params.num_predict, // Leave room for response
+          reserveForResponse: params.num_predict,
+          keepFirstMessages: 2,  // Keep initial context
+          keepLastMessages: 12   // Keep recent conversation
+        }
+      );
+      
+      // Log context management info (for debugging)
+      if (contextResult.trimmedCount > 0) {
+        console.log(`Context management: Trimmed ${contextResult.trimmedCount} messages to fit context window`);
+      }
+      
+      // Build chat messages for API with managed context
       let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }> = [
         { role: 'system', content: enhancedSystemPrompt },
-        ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
+        ...contextResult.messages
       ];
+      
+      // Show warning if context is still too large
+      if (contextResult.warning) {
+        console.warn('Context warning:', contextResult.warning);
+      }
 
       // If tools are enabled but model confirmed NOT to support them, show notice
       if (toolsEnabled && capabilitiesChecked && !modelSupportsTools && toolRegistry.getToolDefinitions().length > 0) {
@@ -1202,6 +1254,31 @@ export default function App() {
                 }`}>
                   {currentPersonaConfig.name}
                 </span>
+                {/* Context Usage Indicator */}
+                {contextUsage && messages.length > 0 && (
+                  <Tooltip 
+                    content={`~${formatTokenCount(contextUsage.tokens)} tokens used of ${formatTokenCount(params.num_ctx)} context`} 
+                    position="bottom"
+                  >
+                    <div className={`hidden lg:flex items-center gap-1.5 text-xs px-2 py-1 rounded-full cursor-default ${
+                      contextUsage.status === 'critical' ? 'bg-red-500/10 text-red-400' :
+                      contextUsage.status === 'warning' ? 'bg-amber-500/10 text-amber-400' :
+                      'bg-theme-bg-tertiary text-theme-text-muted'
+                    }`}>
+                      <div className="w-12 h-1.5 bg-theme-bg-elevated rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all ${
+                            contextUsage.status === 'critical' ? 'bg-red-500' :
+                            contextUsage.status === 'warning' ? 'bg-amber-500' :
+                            'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(contextUsage.percent, 100)}%` }}
+                        />
+                      </div>
+                      <span className="font-mono">{contextUsage.percent}%</span>
+                    </div>
+                  </Tooltip>
+                )}
               </div>
             </div>
             <div className="flex gap-2">

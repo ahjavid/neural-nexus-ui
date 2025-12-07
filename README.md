@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.10-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.11-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -544,6 +544,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Persona-Specific Response Length** - Each persona now has optimized `num_predict` settings (Coder: 4096, Writer: 3072, Analyst: 2048)
 - **Context-Aware Personas** - Dynamic prompt enhancement based on: knowledge base, code attachments, document attachments, conversation length
 - **Consistent Logo Styling** - Fixed brand text to be bold and consistent across all UI locations
+
+### v1.1.11 (December 2025)
+- **Smart Context Management** - Hybrid strategy keeps first 2 + last 12 messages, trims middle when context is full
+- **Increased Context Window** - Default `num_ctx` increased from 4096 to 8192 tokens
+- **Token Usage Indicator** - Visual progress bar in header showing context usage with color-coded status
+- **Token Estimation** - New utilities: `estimateTokens()`, `manageContext()`, `formatTokenCount()`
 
 ### v1.1.9 (December 2025)
 - **Auto-Expanding Chat Input** - Textarea grows automatically as you type, up to 6 lines
