@@ -403,7 +403,13 @@ export default function App() {
     const config = personaConfigs[type] || personaConfigs.default;
     setPersona(type);
     setSystemPrompt(config.systemPrompt);
-    setParams(prev => ({ ...prev, ...config.params }));
+    // Apply all persona params including optional num_predict
+    setParams(prev => ({
+      ...prev,
+      ...config.params,
+      // Use persona's num_predict if defined, otherwise keep current value
+      num_predict: config.params.num_predict ?? prev.num_predict
+    }));
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -870,9 +876,50 @@ export default function App() {
       const shouldTryTools = toolsEnabled && (modelSupportsTools || !capabilitiesChecked);
       const tools = shouldTryTools ? toolRegistry.getToolDefinitions() : [];
       
-      // Build enhanced system prompt with knowledge base context
+      // Build enhanced system prompt with context-aware hints
       let enhancedSystemPrompt = systemPrompt;
-      if (knowledgeBase.length > 0 && shouldTryTools) {
+      const hints = currentPersonaConfig.contextHints;
+      
+      // Add context-aware hints based on current state
+      if (hints) {
+        const contextAdditions: string[] = [];
+        
+        // Knowledge base context
+        if (knowledgeBase.length > 0 && shouldTryTools) {
+          if (hints.withKnowledgeBase) {
+            contextAdditions.push(hints.withKnowledgeBase);
+          }
+          const kbContext = `The user has uploaded ${knowledgeBase.length} document(s): ${knowledgeBase.map(k => `"${k.title}"`).join(', ')}.`;
+          contextAdditions.push(kbContext);
+        }
+        
+        // Attachment context - check current message attachments
+        const msgAttachments = userMsg.attachments || [];
+        const hasCodeAttachments = msgAttachments.some((a: Attachment) => 
+          a.type === 'file' && /\.(js|jsx|ts|tsx|py|java|c|cpp|go|rs|rb|php|swift|kt)$/i.test(a.name)
+        );
+        const hasDocAttachments = msgAttachments.some((a: Attachment) => 
+          a.type === 'document' || (a.type === 'file' && /\.(md|txt|json|yaml|yml)$/i.test(a.name))
+        );
+        
+        if (hasCodeAttachments && hints.withCodeAttachments) {
+          contextAdditions.push(hints.withCodeAttachments);
+        }
+        if (hasDocAttachments && hints.withDocAttachments) {
+          contextAdditions.push(hints.withDocAttachments);
+        }
+        
+        // Long conversation context
+        if (updatedMessages.length > 10 && hints.longConversation) {
+          contextAdditions.push(hints.longConversation);
+        }
+        
+        // Append all context additions
+        if (contextAdditions.length > 0) {
+          enhancedSystemPrompt += '\n\n**Context:**\n- ' + contextAdditions.join('\n- ');
+        }
+      } else if (knowledgeBase.length > 0 && shouldTryTools) {
+        // Fallback for personas without contextHints defined
         const kbContext = `\n\n**IMPORTANT - Knowledge Base Available:** The user has uploaded ${knowledgeBase.length} document(s) to their personal knowledge base: ${knowledgeBase.map(k => `"${k.title}"`).join(', ')}. When the user asks about their documents, files, data, transactions, statements, or any personal/uploaded content, you MUST use the rag_search tool FIRST to search their knowledge base. Do NOT make up information - always search first.`;
         enhancedSystemPrompt += kbContext;
       }

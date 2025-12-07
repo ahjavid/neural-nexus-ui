@@ -77,8 +77,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </div>
       
       {/* Brand Text */}
-      <h1 className="text-2xl md:text-3xl font-extralight tracking-tight text-theme-text-primary mb-1 flex-shrink-0">
-        NEURAL <span className="font-bold bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">NEXUS</span>
+      <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-theme-text-primary mb-1 flex-shrink-0">
+        NEURAL <span className="bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">NEXUS</span>
       </h1>
       <p className="text-[10px] text-theme-text-muted mb-4 tracking-[0.25em] uppercase flex-shrink-0">Your Local AI Companion</p>
       

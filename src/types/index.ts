@@ -73,16 +73,26 @@ export type Model = OllamaModel;
 // Persona types
 export type PersonaType = 'default' | 'coder' | 'writer' | 'analyst';
 
+export interface PersonaParams {
+  temperature: number;
+  top_p: number;
+  top_k: number;
+  repeat_penalty: number;
+  num_predict?: number;  // Optional response length limit
+}
+
 export interface PersonaConfig {
   name: string;
   icon: React.ComponentType<Record<string, unknown>>;
   color: 'indigo' | 'emerald' | 'purple' | 'amber';
   systemPrompt: string;
-  params: {
-    temperature: number;
-    top_p: number;
-    top_k: number;
-    repeat_penalty: number;
+  params: PersonaParams;
+  // Context-aware hints for dynamic prompt enhancement
+  contextHints?: {
+    withKnowledgeBase?: string;  // Extra instructions when KB is loaded
+    withCodeAttachments?: string;  // Extra instructions for code files
+    withDocAttachments?: string;  // Extra instructions for documents
+    longConversation?: string;  // Instructions for long conversations (>10 messages)
   };
 }
 
