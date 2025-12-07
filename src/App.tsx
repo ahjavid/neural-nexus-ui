@@ -4,6 +4,7 @@ import { ChevronRight, Layout, Phone, X } from 'lucide-react';
 // Components - eagerly loaded (needed immediately)
 import {
   Button,
+  Tooltip,
   Sidebar,
   ChatInput,
   ChatMessage,
@@ -1103,13 +1104,14 @@ export default function App() {
             }`}>
               {connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}
             </div>
-            <button
-              onClick={() => setZenMode(false)}
-              className="p-2.5 bg-theme-bg-elevated/70 hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-primary rounded-full transition-all backdrop-blur-sm border border-theme-border-primary/50"
-              title="Exit Zen Mode"
-            >
-              <X size={18} />
-            </button>
+            <Tooltip content="Exit Zen Mode" position="bottom">
+              <button
+                onClick={() => setZenMode(false)}
+                className="p-2.5 bg-theme-bg-elevated/70 hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-primary rounded-full transition-all backdrop-blur-sm border border-theme-border-primary/50"
+              >
+                <X size={18} />
+              </button>
+            </Tooltip>
           </div>
         ) : (
           <div className="h-16 border-b border-theme-border-primary flex items-center justify-between px-4 md:px-6 bg-theme-bg-primary/80 backdrop-blur-sm z-10">
@@ -1133,14 +1135,14 @@ export default function App() {
                       amber: isActive ? 'bg-amber-600 text-white' : 'text-theme-text-muted hover:text-amber-400 hover:bg-amber-500/10'
                     };
                     return (
-                      <button
-                        key={id}
-                        onClick={() => switchPersona(id as PersonaType)}
-                        className={`p-1.5 rounded transition-all ${colorClasses[config.color]} ${isActive ? 'shadow' : ''}`}
-                        title={`${config.name} (Temp: ${config.params.temperature})`}
-                      >
-                        <Icon size={14} />
-                      </button>
+                      <Tooltip key={id} content={`${config.name} (Temp: ${config.params.temperature})`} position="bottom">
+                        <button
+                          onClick={() => switchPersona(id as PersonaType)}
+                          className={`p-1.5 rounded transition-all ${colorClasses[config.color]} ${isActive ? 'shadow' : ''}`}
+                        >
+                          <Icon size={14} />
+                        </button>
+                      </Tooltip>
                     );
                   })}
                 </div>
@@ -1156,10 +1158,10 @@ export default function App() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="accent" onClick={startVoiceMode} icon={Phone} title="Omni-Voice Mode">
+              <Button variant="accent" onClick={startVoiceMode} icon={Phone} title="Omni-Voice Mode" tooltipPosition="bottom">
                 <span className="hidden md:inline text-xs">Voice</span>
               </Button>
-              <Button variant="ghost" onClick={() => setZenMode(true)} icon={Layout} title="Zen Mode" />
+              <Button variant="ghost" onClick={() => setZenMode(true)} icon={Layout} title="Zen Mode" tooltipPosition="bottom" />
             </div>
           </div>
         )}

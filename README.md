@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.7-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.8-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -538,6 +538,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.8 (December 2025)
+- **Styled Tooltips** - Custom tooltip component replacing native browser tooltips with modern, themed design
+- **Smooth Animations** - Fade-in animation with 400ms delay for clean UX
+- **Position Options** - Tooltips support top, bottom, left, right positioning
+- **Dark Theme Support** - Tooltips automatically adapt to current theme
 
 ### v1.1.7 (December 2025)
 - **Query Expansion** - Expand search queries with synonyms, acronyms, and related terms for better recall

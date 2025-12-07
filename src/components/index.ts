@@ -1,4 +1,5 @@
 export { Button } from './Button';
+export { Tooltip } from './Tooltip';
 export { CodeBlock } from './CodeBlock';
 export { MessageContent } from './MessageContent';
 export { VoiceModeOverlay } from './VoiceModeOverlay';

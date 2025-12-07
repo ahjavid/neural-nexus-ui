@@ -1,4 +1,5 @@
 import React from 'react';
+import { Tooltip } from './Tooltip';
 
 interface ButtonProps {
   children?: React.ReactNode;
@@ -9,6 +10,7 @@ interface ButtonProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon?: React.ComponentType<any>;
   title?: string;
+  tooltipPosition?: 'top' | 'bottom' | 'left' | 'right';
   type?: 'button' | 'submit' | 'reset';
 }
 
@@ -20,6 +22,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false, 
   icon: Icon, 
   title,
+  tooltipPosition = 'top',
   type = 'button'
 }) => {
   const baseStyle = "flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-theme-bg-primary";
@@ -32,16 +35,25 @@ export const Button: React.FC<ButtonProps> = ({
     accent: "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-purple-500/20 hover:scale-105 focus:ring-purple-400"
   };
 
-  return (
+  const button = (
     <button 
       type={type}
       onClick={onClick} 
       disabled={disabled} 
-      title={title} 
       className={`${baseStyle} ${variants[variant]} ${className}`}
     >
       {Icon && <Icon size={18} className={children ? "mr-2" : ""} />}
       {children}
     </button>
   );
+
+  if (title) {
+    return (
+      <Tooltip content={title} position={tooltipPosition}>
+        {button}
+      </Tooltip>
+    );
+  }
+
+  return button;
 };

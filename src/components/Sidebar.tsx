@@ -14,7 +14,7 @@ import {
   SearchX
 } from 'lucide-react';
 import { Button } from './Button';
-import { formatRelativeDate } from '../utils/helpers';
+import { Tooltip } from './Tooltip';
 import type { Session, Model } from '../types';
 
 interface SidebarProps {
@@ -158,7 +158,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   </div>
                   {periodSessions.map((session) => {
-                    const messageCount = session.messages.length;
                     const userMessages = session.messages.filter(m => m.role === 'user').length;
                     
                     return (
@@ -197,13 +196,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                           </div>
                         </div>
-                        <button 
-                          onClick={(e) => onDeleteSession(e, session.id)} 
-                          className="p-1 rounded-md text-theme-text-muted hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all duration-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500/50 shrink-0 ml-1"
-                          title="Delete session"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <Tooltip content="Delete session" position="left">
+                          <button 
+                            onClick={(e) => onDeleteSession(e, session.id)} 
+                            className="p-1 rounded-md text-theme-text-muted hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all duration-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500/50 shrink-0 ml-1"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </Tooltip>
                       </div>
                     );
                   })}
@@ -245,21 +245,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Button variant="icon" onClick={onOpenHelp} title="Shortcuts"><Keyboard size={16} /></Button>
             <Button variant="icon" onClick={onOpenSettings} title="Settings"><Settings size={16} /></Button>
           </div>
-          <div 
-            className={`w-2.5 h-2.5 rounded-full cursor-help transition-all ${
-              connectionStatus === 'connected' 
-                ? 'bg-green-500 shadow-sm shadow-green-500/50' 
-                : connectionStatus === 'checking'
-                ? 'bg-amber-500 animate-pulse shadow-sm shadow-amber-500/50'
-                : 'bg-red-500 shadow-sm shadow-red-500/50'
-            }`}
-            title={connectionStatus === 'connected' 
+          <Tooltip 
+            content={connectionStatus === 'connected' 
               ? 'Connected to Ollama' 
               : connectionStatus === 'checking' 
               ? 'Connecting...' 
               : 'Disconnected - Click Settings to configure'
             }
-          />
+            position="left"
+          >
+            <div 
+              className={`w-2.5 h-2.5 rounded-full cursor-help transition-all ${
+                connectionStatus === 'connected' 
+                  ? 'bg-green-500 shadow-sm shadow-green-500/50' 
+                  : connectionStatus === 'checking'
+                  ? 'bg-amber-500 animate-pulse shadow-sm shadow-amber-500/50'
+                  : 'bg-red-500 shadow-sm shadow-red-500/50'
+              }`}
+            />
+          </Tooltip>
         </div>
       </div>
     </div>

@@ -13,6 +13,7 @@ import {
   Loader2,
   Wrench
 } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 import type { Attachment } from '../types';
 import { formatFileSize } from '../utils/helpers';
 
@@ -176,26 +177,28 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               multiple 
               accept="image/*,.txt,.md,.rmd,.markdown,.json,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.scala,.html,.css,.scss,.sass,.less,.sql,.sh,.bash,.yaml,.yml,.toml,.xml,.csv,.tsv,.log,.env,.conf,.config,.ini,.r,.R,.jl,.lua,.pl,.ipynb,.tex,.bib,.rst,.zig,.ex,.exs,.hs,.ml,.clj,.vim,.fish,.pdf,.docx,.doc,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" 
             />
-            <button 
-              onClick={() => fileInputRef.current?.click()} 
-              disabled={streaming || !selectedModel} 
-              className="p-1.5 text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
-              title="Attach"
-            >
-              <Plus size={18} />
-            </button>
-            <button 
-              onClick={onToggleListening} 
-              disabled={streaming || !selectedModel} 
-              className={`p-1.5 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                isListening 
-                  ? 'text-red-400 bg-red-500/10 animate-pulse' 
-                  : 'text-theme-text-muted hover:text-green-400 hover:bg-green-500/10'
-              }`} 
-              title="Voice"
-            >
-              {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
+            <Tooltip content="Attach file" position="top">
+              <button 
+                onClick={() => fileInputRef.current?.click()} 
+                disabled={streaming || !selectedModel} 
+                className="p-1.5 text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
+              >
+                <Plus size={18} />
+              </button>
+            </Tooltip>
+            <Tooltip content={isListening ? "Stop listening" : "Voice input"} position="top">
+              <button 
+                onClick={onToggleListening} 
+                disabled={streaming || !selectedModel} 
+                className={`p-1.5 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                  isListening 
+                    ? 'text-red-400 bg-red-500/10 animate-pulse' 
+                    : 'text-theme-text-muted hover:text-green-400 hover:bg-green-500/10'
+                }`} 
+              >
+                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+              </button>
+            </Tooltip>
           </div>
 
           <textarea

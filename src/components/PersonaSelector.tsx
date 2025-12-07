@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, FileCode, PenTool, BarChart } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 import type { PersonaType, PersonaConfig } from '../types';
 
 // Persona configurations
@@ -80,14 +81,14 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
             amber: isActive ? 'bg-amber-600 text-white' : 'text-theme-text-muted hover:text-amber-400 hover:bg-amber-500/10'
           };
           return (
-            <button 
-              key={id}
-              onClick={() => onSelect(id as PersonaType)}
-              className={`p-1.5 rounded transition-all ${colorClasses[config.color]} ${isActive ? 'shadow' : ''}`}
-              title={`${config.name} (Temp: ${config.params.temperature})`}
-            >
-              <Icon size={14} />
-            </button>
+            <Tooltip key={id} content={`${config.name} (Temp: ${config.params.temperature})`} position="top">
+              <button 
+                onClick={() => onSelect(id as PersonaType)}
+                className={`p-1.5 rounded transition-all ${colorClasses[config.color]} ${isActive ? 'shadow' : ''}`}
+              >
+                <Icon size={14} />
+              </button>
+            </Tooltip>
           );
         })}
       </div>
