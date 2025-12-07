@@ -21,9 +21,12 @@ import {
   formatReasoningChain,
   decomposeQuery,
   cosineSimilarity,
+  rewriteQueryWithContext,
+  queryNeedsContext,
   type KnowledgeGraph,
   type HybridSearchResult,
-  type EntityExtractionResult
+  type EntityExtractionResult,
+  type ContextMessage
 } from './neurosymbolic';
 
 // ============================================
@@ -35,6 +38,24 @@ interface ToolConfig {
   ollamaEndpoint: string;
   embeddingModel: string;
 }
+
+// Conversation context for query rewriting (injected from App)
+let conversationContextCache: ContextMessage[] = [];
+
+/**
+ * Set conversation context for query rewriting in RAG search
+ * Called from App.tsx before tool execution
+ */
+export const setConversationContext = (messages: ContextMessage[]): void => {
+  conversationContextCache = messages.slice(-6); // Keep last 6 messages
+};
+
+/**
+ * Get stored conversation context
+ */
+export const getConversationContext = (): ContextMessage[] => {
+  return conversationContextCache;
+};
 
 const getToolConfig = (): ToolConfig => {
   return {
@@ -697,20 +718,33 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
  * - RRF: reciprocal rank fusion for combining signals
  * - MMR: maximal marginal relevance for diversity
  * - Query Expansion: synonyms and acronyms
+ * - Query Rewriting: context-aware pronoun and reference resolution
  */
 const ragSearch: ToolHandler = async (args) => {
-  const query = args.query as string;
+  let query = args.query as string;
   const topK = (args.top_k as number) || 5;
   const threshold = (args.threshold as number) || 0.1;
   const useHybrid = (args.hybrid as boolean) !== false; // Default to hybrid
   const showReasoning = (args.show_reasoning as boolean) || false;
   const useEnhanced = (args.enhanced as boolean) !== false; // Default to enhanced
+  // Use provided context or fall back to cached context from App
+  const conversationContext = (args.conversation_context as ContextMessage[] | undefined) || getConversationContext();
   
   if (!query) {
     return 'Error: No search query provided';
   }
   
   const config = getToolConfig();
+  
+  // Apply query rewriting if conversation context is available and query needs it
+  let queryRewriteInfo = '';
+  if (conversationContext.length > 0 && queryNeedsContext(query)) {
+    const rewriteResult = rewriteQueryWithContext(query, conversationContext);
+    if (rewriteResult.rewritten !== rewriteResult.original) {
+      queryRewriteInfo = `\n📝 Query rewritten: "${query}" → "${rewriteResult.rewritten}" (${rewriteResult.changes.join(', ')})`;
+      query = rewriteResult.rewritten;
+    }
+  }
   
   try {
     // Load and embed knowledge base (with knowledge graph)
@@ -936,6 +970,12 @@ const ragSearch: ToolHandler = async (args) => {
       `Found ${results.length} relevant document(s)`,
       ''
     ];
+    
+    // Show query rewrite info if applied
+    if (queryRewriteInfo) {
+      output.push(queryRewriteInfo);
+      output.push('');
+    }
     
     // Show query analysis
     if (queryEntities.entities.length > 0 || queryEntities.keywords.length > 0) {
@@ -1184,14 +1224,14 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     type: 'function',
     function: {
       name: 'rag_search',
-      description: 'Search through the USER\'S PERSONAL knowledge base using Enhanced Neurosymbolic AI - combines neural embeddings with symbolic reasoning (entity matching, keyword analysis, knowledge graph), BM25 sparse retrieval, Reciprocal Rank Fusion (RRF), and Maximal Marginal Relevance (MMR) for diverse results. Supports query expansion with synonyms. ALWAYS use this tool FIRST when the user asks about: their documents, files, uploads, notes, "my documents", personal data like bank statements, receipts, invoices, or any content they have added.',
+      description: 'Search through the USER\'S PERSONAL knowledge base using Enhanced Neurosymbolic AI - combines neural embeddings with symbolic reasoning (entity matching, keyword analysis, knowledge graph), BM25 sparse retrieval, Reciprocal Rank Fusion (RRF), and Maximal Marginal Relevance (MMR) for diverse results. Supports query expansion with synonyms and context-aware query rewriting. ALWAYS use this tool FIRST when the user asks about: their documents, files, uploads, notes, "my documents", personal data like bank statements, receipts, invoices, or any content they have added.',
       parameters: {
         type: 'object',
         required: ['query'],
         properties: {
           query: {
             type: 'string',
-            description: 'The search query. Describe what you\'re looking for. Complex queries like "compare X to Y" or "find expenses in January" are supported.'
+            description: 'The search query. Describe what you\'re looking for. Complex queries like "compare X to Y" or "find expenses in January" are supported. Pronouns like "it", "the document" will be resolved from conversation context.'
           },
           top_k: {
             type: 'number',
@@ -1212,6 +1252,10 @@ const toolDefinitions: Record<string, ToolDefinition> = {
           show_reasoning: {
             type: 'boolean',
             description: 'Show the reasoning chain explaining how results were found. Defaults to false.'
+          },
+          conversation_context: {
+            type: 'array',
+            description: 'Recent conversation messages for context-aware query rewriting. Pass the last 4-6 messages to resolve pronouns like "it", "the document", etc.'
           }
         }
       }

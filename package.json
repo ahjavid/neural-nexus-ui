@@ -1,6 +1,6 @@
 {
   "name": "neural-nexus-ui",
-  "version": "1.1.14",
+  "version": "1.1.15",
   "description": "A modern Ollama chat interface with voice mode and knowledge base",
   "private": true,
   "type": "module",

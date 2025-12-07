@@ -29,10 +29,15 @@ export {
   manageContext,
   formatTokenCount,
   getContextUsage,
+  // Dynamic repetition penalty
+  calculateDynamicRepeatPenalty,
+  getPersonaRepeatConfig,
+  DEFAULT_DYNAMIC_REPEAT_CONFIG,
   type ContextConfig,
-  type ContextResult
+  type ContextResult,
+  type DynamicRepeatPenaltyConfig
 } from './helpers';
-export { toolRegistry, ToolRegistry, getLastSearchExplanation, clearEmbeddingCache } from './tools';
+export { toolRegistry, ToolRegistry, getLastSearchExplanation, clearEmbeddingCache, setConversationContext } from './tools';
 
 // Neurosymbolic AI exports
 export {
@@ -59,6 +64,9 @@ export {
   expandAcronym,
   addSynonyms,
   addAcronym,
+  // Query rewriting with context
+  rewriteQueryWithContext,
+  queryNeedsContext,
   // Types
   type EntityType,
   type ExtractedEntity,
@@ -79,6 +87,9 @@ export {
   type MMRItem,
   type EnhancedHybridSearchOptions,
   type ExpandedQuery,
-  type QueryExpansionOptions
+  type QueryExpansionOptions,
+  type QueryRewriteConfig,
+  type ContextMessage,
+  type RewrittenQuery
 } from './neurosymbolic';
 

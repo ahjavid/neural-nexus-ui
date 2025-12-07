@@ -78,6 +78,116 @@ export const DEFAULT_PARAMS = {
 } as const;
 
 // ============================================================================
+// DYNAMIC REPETITION PENALTY
+// ============================================================================
+
+/**
+ * Dynamic Repetition Penalty configuration
+ */
+export interface DynamicRepeatPenaltyConfig {
+  baseRepeatPenalty: number;   // Starting repeat_penalty (e.g., 1.1)
+  maxRepeatPenalty: number;    // Maximum repeat_penalty (e.g., 1.25)
+  tokenThreshold: number;      // Tokens before penalty starts increasing (e.g., 500)
+  maxTokens: number;           // Tokens at which max penalty is reached (e.g., 2000)
+  conversationBoost: number;   // Extra penalty per 10 conversation turns (e.g., 0.02)
+}
+
+/**
+ * Default configuration for dynamic repeat penalty
+ */
+export const DEFAULT_DYNAMIC_REPEAT_CONFIG: DynamicRepeatPenaltyConfig = {
+  baseRepeatPenalty: 1.1,
+  maxRepeatPenalty: 1.25,
+  tokenThreshold: 500,
+  maxTokens: 2000,
+  conversationBoost: 0.02
+};
+
+/**
+ * Calculate dynamic repetition penalty based on generation context.
+ * 
+ * Prevents the model from getting stuck in loops on long outputs by
+ * gradually increasing repeat_penalty as output length increases.
+ * 
+ * Also considers conversation length - longer conversations tend to
+ * have more repeated concepts, so a slight boost helps.
+ * 
+ * @param currentTokens - Estimated tokens generated so far in current response
+ * @param conversationTurns - Number of message pairs in conversation
+ * @param config - Dynamic penalty configuration
+ * @returns Adjusted repeat_penalty value
+ */
+export const calculateDynamicRepeatPenalty = (
+  currentTokens: number,
+  conversationTurns: number = 0,
+  config: Partial<DynamicRepeatPenaltyConfig> = {}
+): number => {
+  const {
+    baseRepeatPenalty,
+    maxRepeatPenalty,
+    tokenThreshold,
+    maxTokens,
+    conversationBoost
+  } = { ...DEFAULT_DYNAMIC_REPEAT_CONFIG, ...config };
+
+  // Calculate token-based increase
+  let tokenPenalty = baseRepeatPenalty;
+  if (currentTokens > tokenThreshold) {
+    const tokensOverThreshold = currentTokens - tokenThreshold;
+    const tokenRange = maxTokens - tokenThreshold;
+    const progress = Math.min(1, tokensOverThreshold / tokenRange);
+    // Smooth curve using sqrt for gradual increase
+    const tokenIncrease = Math.sqrt(progress) * (maxRepeatPenalty - baseRepeatPenalty);
+    tokenPenalty = baseRepeatPenalty + tokenIncrease;
+  }
+
+  // Add conversation-based boost (caps at 0.1 extra)
+  const conversationIncrease = Math.min(0.1, Math.floor(conversationTurns / 10) * conversationBoost);
+
+  // Return capped value
+  return Math.min(maxRepeatPenalty, tokenPenalty + conversationIncrease);
+};
+
+/**
+ * Get repeat penalty config adjusted for persona.
+ * Different personas may benefit from different penalty curves.
+ */
+export const getPersonaRepeatConfig = (
+  personaType: string,
+  baseRepeatPenalty: number
+): DynamicRepeatPenaltyConfig => {
+  switch (personaType) {
+    case 'coder':
+      // Coder: Lower penalty to allow code patterns, but increase for long outputs
+      return {
+        ...DEFAULT_DYNAMIC_REPEAT_CONFIG,
+        baseRepeatPenalty: Math.max(1.0, baseRepeatPenalty - 0.05),
+        maxRepeatPenalty: 1.2,
+        tokenThreshold: 800  // Code often has repeated patterns
+      };
+    case 'writer':
+      // Writer: Standard curve, slightly higher max to avoid repetitive prose
+      return {
+        ...DEFAULT_DYNAMIC_REPEAT_CONFIG,
+        baseRepeatPenalty,
+        maxRepeatPenalty: 1.3
+      };
+    case 'analyst':
+      // Analyst: Higher threshold since data descriptions may repeat
+      return {
+        ...DEFAULT_DYNAMIC_REPEAT_CONFIG,
+        baseRepeatPenalty,
+        tokenThreshold: 600
+      };
+    default:
+      return {
+        ...DEFAULT_DYNAMIC_REPEAT_CONFIG,
+        baseRepeatPenalty
+      };
+  }
+};
+
+// ============================================================================
 // CONTEXT MANAGEMENT UTILITIES
 // ============================================================================
 

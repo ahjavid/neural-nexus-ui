@@ -27,9 +27,11 @@ import {
   getApiUrl, 
   manageContext, 
   estimateTokens, 
-  formatTokenCount
+  formatTokenCount,
+  calculateDynamicRepeatPenalty,
+  getPersonaRepeatConfig
 } from './utils/helpers';
-import { toolRegistry, clearEmbeddingCache } from './utils/tools';
+import { toolRegistry, clearEmbeddingCache, setConversationContext } from './utils/tools';
 
 // Types
 import type {
@@ -727,13 +729,33 @@ export default function App() {
   const executeChat = async (
     chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
     tools: ToolDefinition[] | undefined,
-    signal: AbortSignal
+    signal: AbortSignal,
+    estimatedResponseTokens: number = 0
   ): Promise<{ content: string; tool_calls?: ToolCall[]; done: boolean }> => {
+    // Calculate dynamic repeat penalty based on conversation length and expected output
+    const conversationTurns = Math.floor(chatMessages.filter(m => m.role === 'user').length);
+    const repeatConfig = getPersonaRepeatConfig(persona, params.repeat_penalty);
+    const dynamicRepeatPenalty = calculateDynamicRepeatPenalty(
+      estimatedResponseTokens,
+      conversationTurns,
+      repeatConfig
+    );
+
+    // Log dynamic penalty for debugging
+    if (dynamicRepeatPenalty !== params.repeat_penalty) {
+      console.log('[Dynamic Repeat Penalty]', {
+        base: params.repeat_penalty,
+        dynamic: dynamicRepeatPenalty.toFixed(3),
+        conversationTurns,
+        persona
+      });
+    }
+
     const options = {
       temperature: params.temperature,
       top_k: params.top_k,
       top_p: params.top_p,
-      repeat_penalty: params.repeat_penalty,
+      repeat_penalty: dynamicRepeatPenalty,
       num_predict: params.num_predict,
       num_ctx: params.num_ctx,
       ...(params.seed !== -1 && { seed: params.seed }),
@@ -772,6 +794,7 @@ export default function App() {
   };
 
   // Helper: Stream a chat response (no tools, for final response)
+  // Uses dynamic repeat penalty that increases as output grows to prevent loops
   const streamChat = async (
     chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
     startTime: number,
@@ -779,11 +802,29 @@ export default function App() {
     isVoice: boolean,
     contentPrefix = ''
   ) => {
+    // Calculate dynamic repeat penalty based on conversation length
+    // For streaming, we start with base and let it naturally increase if needed
+    const conversationTurns = Math.floor(chatMessages.filter(m => m.role === 'user').length);
+    const repeatConfig = getPersonaRepeatConfig(persona, params.repeat_penalty);
+    const dynamicRepeatPenalty = calculateDynamicRepeatPenalty(
+      0, // Start at 0, penalty increases with conversation length
+      conversationTurns,
+      repeatConfig
+    );
+
+    // Log dynamic penalty for debugging
+    console.log('[Dynamic Repeat Penalty - Stream]', {
+      base: params.repeat_penalty,
+      dynamic: dynamicRepeatPenalty.toFixed(3),
+      conversationTurns,
+      persona
+    });
+
     const options = {
       temperature: params.temperature,
       top_k: params.top_k,
       top_p: params.top_p,
-      repeat_penalty: params.repeat_penalty,
+      repeat_penalty: dynamicRepeatPenalty,
       num_predict: params.num_predict,
       num_ctx: params.num_ctx,
       ...(params.seed !== -1 && { seed: params.seed }),
@@ -1039,6 +1080,14 @@ export default function App() {
                 content: result.content || '',
                 tool_calls: toolCalls
               });
+              
+              // Inject conversation context for RAG search query rewriting
+              // This allows rag_search to resolve pronouns like "it", "the document", etc.
+              const contextForTools = chatMessages
+                .filter(m => m.role === 'user' || m.role === 'assistant')
+                .slice(-6)
+                .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+              setConversationContext(contextForTools);
               
               // Execute all tool calls
               const toolResults = await toolRegistry.executeToolCalls(toolCalls);

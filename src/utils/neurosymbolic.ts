@@ -2174,6 +2174,295 @@ export const addAcronym = (acronym: string, expansion: string): void => {
   ACRONYM_MAP.set(acronym.toLowerCase().trim(), expansion.toLowerCase().trim());
 };
 
-// Note: BM25, reciprocalRankFusion, fuseWithRRF, mmrRerank, diversityFilter, 
-// enhancedHybridSearch, expandQuery, getSynonyms, expandAcronym, addSynonyms, 
-// addAcronym are exported at their declarations above.
+// ============================================
+// Query Rewriting with Conversation Context
+// ============================================
+
+/**
+ * Common pronouns that may need resolution
+ */
+const PRONOUNS = new Set([
+  'it', 'its', 'this', 'that', 'these', 'those',
+  'they', 'them', 'their', 'he', 'she', 'him', 'her',
+  'the document', 'the file', 'the above', 'the previous',
+  'same', 'similar', 'another', 'other'
+]);
+
+/**
+ * Reference phrases that indicate context dependency
+ */
+const REFERENCE_PATTERNS = [
+  /\b(the|this|that)\s+(document|file|pdf|report|data|content|text|info|information)\b/gi,
+  /\b(it|they|these|those)\s+(says?|mentions?|contains?|shows?|includes?)\b/gi,
+  /\b(same|similar|another|other)\s+(one|thing|document|file)\b/gi,
+  /\bwhat\s+about\b/gi,
+  /\band\s+(also|what|how)\b/gi,
+  /\bmore\s+(about|on|details?)\b/gi
+];
+
+/**
+ * Configuration for query rewriting
+ */
+export interface QueryRewriteConfig {
+  maxContextMessages: number;    // How many recent messages to consider
+  resolvePronouns: boolean;      // Whether to resolve pronouns like "it", "they"
+  expandReferences: boolean;     // Whether to expand "the document" to actual title
+  includeTopicContext: boolean;  // Whether to add topic from conversation
+  minConfidence: number;         // Minimum confidence to apply rewrite (0-1)
+}
+
+const DEFAULT_REWRITE_CONFIG: Required<QueryRewriteConfig> = {
+  maxContextMessages: 6,
+  resolvePronouns: true,
+  expandReferences: true,
+  includeTopicContext: true,
+  minConfidence: 0.5
+};
+
+/**
+ * Message structure for context (simplified)
+ */
+export interface ContextMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+/**
+ * Result of query rewriting
+ */
+export interface RewrittenQuery {
+  original: string;
+  rewritten: string;
+  confidence: number;
+  changes: string[];
+  resolvedReferences: Array<{ from: string; to: string }>;
+}
+
+/**
+ * Extract mentioned entities/topics from recent messages
+ */
+const extractConversationTopics = (messages: ContextMessage[]): {
+  documents: string[];
+  entities: ExtractedEntity[];
+  keywords: string[];
+  lastTopic: string | null;
+} => {
+  const documents: string[] = [];
+  const allEntities: ExtractedEntity[] = [];
+  const allKeywords: string[] = [];
+  let lastTopic: string | null = null;
+
+  for (const msg of messages) {
+    // Extract document references
+    const docMatches = msg.content.match(/(?:document|file|pdf|report)[:\s]+["']?([^"'\n,]+)["']?/gi);
+    if (docMatches) {
+      for (const match of docMatches) {
+        const name = match.replace(/(?:document|file|pdf|report)[:\s]+["']?/i, '').replace(/["']$/, '');
+        if (name && name.length > 2) documents.push(name.trim());
+      }
+    }
+
+    // Extract entities from user messages
+    if (msg.role === 'user') {
+      const extraction = extractEntities(msg.content);
+      allEntities.push(...extraction.entities);
+      allKeywords.push(...extraction.keywords);
+      
+      // Track last substantial topic (skip very short queries)
+      if (msg.content.length > 20) {
+        const topKeywords = extraction.keywords.slice(0, 3);
+        if (topKeywords.length > 0) {
+          lastTopic = topKeywords.join(' ');
+        }
+      }
+    }
+  }
+
+  return {
+    documents: [...new Set(documents)],
+    entities: allEntities,
+    keywords: [...new Set(allKeywords)].slice(0, 20),
+    lastTopic
+  };
+};
+
+/**
+ * Check if query contains reference patterns that need resolution
+ */
+const hasUnresolvedReferences = (query: string): boolean => {
+  const lowerQuery = query.toLowerCase();
+  
+  // Check for pronouns
+  const words = lowerQuery.split(/\s+/);
+  for (const word of words) {
+    if (PRONOUNS.has(word)) return true;
+  }
+
+  // Check for reference patterns
+  for (const pattern of REFERENCE_PATTERNS) {
+    if (pattern.test(query)) return true;
+  }
+
+  return false;
+};
+
+/**
+ * Rewrite a query using conversation context for better retrieval.
+ * 
+ * This function:
+ * 1. Detects pronouns and references ("it", "the document", "this")
+ * 2. Resolves them using recent conversation context
+ * 3. Adds topic context if query is too vague
+ * 4. Returns both original and rewritten query with confidence
+ * 
+ * @param query - The user's current query
+ * @param recentMessages - Recent conversation messages for context
+ * @param config - Rewrite configuration options
+ * @returns RewrittenQuery with original, rewritten text, and metadata
+ * 
+ * @example
+ * // User previously asked about "bank_statement.pdf"
+ * // Now asks: "what transactions are in it?"
+ * const result = rewriteQueryWithContext(
+ *   "what transactions are in it?",
+ *   recentMessages
+ * );
+ * // result.rewritten = "what transactions are in bank_statement.pdf?"
+ */
+export const rewriteQueryWithContext = (
+  query: string,
+  recentMessages: ContextMessage[],
+  config: Partial<QueryRewriteConfig> = {}
+): RewrittenQuery => {
+  const opts = { ...DEFAULT_REWRITE_CONFIG, ...config };
+  
+  const result: RewrittenQuery = {
+    original: query,
+    rewritten: query,
+    confidence: 1.0,
+    changes: [],
+    resolvedReferences: []
+  };
+
+  // If no context or query doesn't need rewriting, return as-is
+  if (recentMessages.length === 0 || !hasUnresolvedReferences(query)) {
+    return result;
+  }
+
+  // Get recent messages (respect config limit)
+  const contextMessages = recentMessages.slice(-opts.maxContextMessages);
+  
+  // Extract topics from conversation
+  const topics = extractConversationTopics(contextMessages);
+  
+  let rewritten = query;
+  const changes: string[] = [];
+  const resolvedRefs: Array<{ from: string; to: string }> = [];
+
+  // 1. Resolve document references
+  if (opts.expandReferences && topics.documents.length > 0) {
+    const lastDocument = topics.documents[topics.documents.length - 1];
+    
+    // Replace generic document references
+    const docPatterns = [
+      /\b(the|this|that)\s+(document|file|pdf)\b/gi,
+      /\bin\s+it\b/gi,
+      /\bfrom\s+it\b/gi,
+      /\babout\s+it\b/gi
+    ];
+    
+    for (const pattern of docPatterns) {
+      if (pattern.test(rewritten)) {
+        const before = rewritten;
+        rewritten = rewritten.replace(pattern, (match) => {
+          if (/in\s+it/i.test(match)) return `in "${lastDocument}"`;
+          if (/from\s+it/i.test(match)) return `from "${lastDocument}"`;
+          if (/about\s+it/i.test(match)) return `about "${lastDocument}"`;
+          return `"${lastDocument}"`;
+        });
+        if (before !== rewritten) {
+          resolvedRefs.push({ from: 'document reference', to: lastDocument });
+          changes.push(`Resolved document reference to "${lastDocument}"`);
+        }
+      }
+    }
+  }
+
+  // 2. Resolve entity pronouns (it, they, this, that)
+  if (opts.resolvePronouns && topics.entities.length > 0) {
+    // Group entities by type to find most relevant
+    const entityByType: Record<string, ExtractedEntity[]> = {};
+    for (const entity of topics.entities) {
+      if (!entityByType[entity.type]) entityByType[entity.type] = [];
+      entityByType[entity.type].push(entity);
+    }
+
+    // Find standalone "it" or "they" that might refer to entities
+    const pronounMatch = rewritten.match(/\b(it|they|this|that)\s+(is|are|was|were|has|have|shows?|contains?)\b/i);
+    if (pronounMatch) {
+      // Try to find most relevant entity from context
+      const recentEntity = topics.entities[topics.entities.length - 1];
+      if (recentEntity) {
+        const before = rewritten;
+        rewritten = rewritten.replace(
+          new RegExp(`\\b${pronounMatch[1]}\\b`, 'i'),
+          `"${recentEntity.value}"`
+        );
+        if (before !== rewritten) {
+          resolvedRefs.push({ from: pronounMatch[1], to: recentEntity.value });
+          changes.push(`Resolved "${pronounMatch[1]}" to "${recentEntity.value}"`);
+        }
+      }
+    }
+  }
+
+  // 3. Add topic context for vague queries
+  if (opts.includeTopicContext && topics.lastTopic) {
+    const lowerQuery = query.toLowerCase();
+    const vaguePatterns = [
+      /^what\s+(else|more)\??$/i,
+      /^(and|also)\s+/i,
+      /^(tell|show|find)\s+me\s+more$/i,
+      /^more\s+(details?|info|information)\??$/i,
+      /^what\s+about\s+\w{1,3}\??$/i  // "what about it?"
+    ];
+    
+    const isVague = vaguePatterns.some(p => p.test(lowerQuery)) || query.split(/\s+/).length <= 3;
+    
+    if (isVague && !changes.length) {
+      // Query is vague and no other changes made - add topic context
+      rewritten = `${query} (regarding ${topics.lastTopic})`;
+      changes.push(`Added topic context: "${topics.lastTopic}"`);
+      result.confidence = 0.7; // Lower confidence for inferred context
+    }
+  }
+
+  // Calculate final confidence based on changes
+  if (changes.length > 0) {
+    // More changes = slightly lower confidence
+    result.confidence = Math.max(opts.minConfidence, 1.0 - (changes.length * 0.1));
+  }
+
+  result.rewritten = rewritten;
+  result.changes = changes;
+  result.resolvedReferences = resolvedRefs;
+
+  // Log if rewriting occurred
+  if (result.original !== result.rewritten) {
+    console.log('[Query Rewrite]', {
+      original: result.original,
+      rewritten: result.rewritten,
+      changes: result.changes,
+      confidence: result.confidence
+    });
+  }
+
+  return result;
+};
+
+/**
+ * Simple check if a query would benefit from context rewriting
+ */
+export const queryNeedsContext = (query: string): boolean => {
+  return hasUnresolvedReferences(query);
+};
