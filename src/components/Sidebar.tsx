@@ -98,25 +98,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const groupedSessions = groupSessionsByDate(filteredSessions);
 
   return (
-    <div className={`${isOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-theme-bg-primary border-r border-theme-border-primary flex flex-col shrink-0 relative z-30 overflow-hidden`}>
-      {/* Header */}
-      <div className="p-4 border-b border-theme-border-primary flex items-center justify-between bg-theme-bg-primary min-w-[320px]">
+    <>
+      {/* Mobile backdrop */}
+      <div 
+        className={`sidebar-backdrop lg:hidden ${isOpen ? 'visible' : ''}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      
+      <div className={`${isOpen ? 'w-[85vw] sm:w-80' : 'w-0'} transition-all duration-300 bg-theme-bg-primary border-r border-theme-border-primary flex flex-col shrink-0 fixed lg:relative z-30 overflow-hidden h-full`}>
+        {/* Header */}
+        <div className="p-3 sm:p-4 border-b border-theme-border-primary flex items-center justify-between bg-theme-bg-primary min-w-[280px] sm:min-w-[320px]">
         <div className="flex items-center gap-2 font-bold text-lg tracking-tight">
           <Cpu size={20} className="text-indigo-400" /><span className="text-theme-text-primary">NEURAL </span><span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">NEXUS</span>
         </div>
         <button 
           onClick={onClose} 
-          className="lg:hidden text-theme-text-muted"
+          className="lg:hidden text-theme-text-muted p-2 -mr-2 hover:bg-theme-bg-elevated rounded-lg touch-target"
+          aria-label="Close sidebar"
         >
-          <ChevronRight />
+          <ChevronRight size={24} />
         </button>
       </div>
 
       {/* Actions */}
-      <div className="p-3 space-y-2 min-w-[320px]">
+      <div className="p-3 space-y-2 min-w-[280px] sm:min-w-[320px]">
         <button 
           onClick={onCreateNew} 
-          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-all shadow-lg active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-theme-bg-primary"
+          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white p-3 sm:p-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-all shadow-lg active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-theme-bg-primary touch-target"
         >
           <Plus size={18} /><span>New Session</span>
         </button>
@@ -134,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Session List */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 custom-scrollbar min-w-[320px]">
+      <div className="flex-1 overflow-y-auto px-3 py-2 custom-scrollbar momentum-scroll min-w-[280px] sm:min-w-[320px]">
         {filteredSessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-theme-text-muted">
             <SearchX size={40} className="mb-3 opacity-40" />
@@ -215,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-theme-border-primary bg-theme-bg-primary space-y-3 min-w-[320px]">
+      <div className="p-3 sm:p-4 border-t border-theme-border-primary bg-theme-bg-primary space-y-3 min-w-[280px] sm:min-w-[320px] safe-area-bottom">
         <div>
           <div className="flex justify-between items-end mb-1">
             <label className="text-[10px] uppercase font-bold text-theme-text-muted">Active Model</label>
@@ -267,5 +276,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
 };

@@ -34,17 +34,19 @@ export const ModelManagerModal: React.FC<ModelManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl overflow-hidden">
+        {/* Swipe indicator for mobile */}
+        <div className="swipe-indicator sm:hidden" />
         <div className="p-4 border-b border-theme-border-primary flex justify-between items-center bg-theme-bg-tertiary">
           <h3 className="font-bold text-theme-text-primary flex items-center gap-2">
             <DownloadCloud size={18} /> Model Manager
           </h3>
-          <button onClick={onClose} className="text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
+          <button onClick={onClose} className="text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-2 -mr-1 touch-target-sm">
             <X size={20} />
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-6 safe-area-bottom">
           {!pullProgress ? (
             <div className="space-y-4">
               <p className="text-sm text-theme-text-secondary">

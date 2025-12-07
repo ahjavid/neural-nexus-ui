@@ -172,18 +172,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[95vh] sm:max-h-[90vh]">
+        {/* Swipe indicator for mobile */}
+        <div className="swipe-indicator sm:hidden" />
         <div className="p-4 border-b border-theme-border-primary flex justify-between items-center bg-theme-bg-tertiary">
           <h3 className="font-bold text-theme-text-primary flex items-center gap-2">
             <Settings size={18} /> Engine Configuration
           </h3>
-          <button onClick={onClose} className="text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
+          <button onClick={onClose} className="text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-2 -mr-1 touch-target-sm">
             <X size={20} />
           </button>
         </div>
         
-        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        <div className="p-4 sm:p-6 space-y-5 max-h-[75vh] sm:max-h-[70vh] overflow-y-auto custom-scrollbar momentum-scroll safe-area-bottom">
           {/* Endpoint */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-theme-text-muted uppercase tracking-wider">Ollama Endpoint</label>

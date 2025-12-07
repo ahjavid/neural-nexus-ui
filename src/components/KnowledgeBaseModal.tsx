@@ -202,24 +202,26 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl shadow-2xl overflow-hidden h-[95vh] sm:h-[85vh] flex flex-col">
+        {/* Swipe indicator for mobile */}
+        <div className="swipe-indicator sm:hidden" />
         {/* Header */}
-        <div className="p-4 border-b border-theme-border-primary flex justify-between items-center bg-theme-bg-tertiary">
-          <h3 className="font-bold text-theme-text-primary flex items-center gap-2">
+        <div className="p-3 sm:p-4 border-b border-theme-border-primary flex justify-between items-center bg-theme-bg-tertiary">
+          <h3 className="font-bold text-theme-text-primary flex items-center gap-2 text-sm sm:text-base">
             <Database size={18} /> Knowledge Base
-            <span className="text-xs text-theme-text-muted font-normal">({knowledgeBase.length} entries)</span>
-            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+            <span className="text-xs text-theme-text-muted font-normal hidden sm:inline">({knowledgeBase.length} entries)</span>
+            <span className="hidden sm:flex ml-2 px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-400 border border-purple-500/30 items-center gap-1">
               <Brain size={10} /> Neurosymbolic AI
             </span>
           </h3>
-          <button onClick={onClose} className="text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1">
+          <button onClick={onClose} className="text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-2 -mr-1 touch-target-sm">
             <X size={20} />
           </button>
         </div>
         
         {/* Document List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 momentum-scroll">
           {knowledgeBase.length === 0 && (
             <div className="text-center py-10">
               <Database size={40} className="mx-auto text-theme-text-muted mb-3" />

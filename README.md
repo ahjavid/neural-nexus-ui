@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.13-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.14-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -538,6 +538,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.14 (December 2025)
+- **Mobile Responsive UI** - Complete mobile optimization for all components
+- **Swipe Gesture** - Swipe left to close sidebar on mobile devices
+- **Touch-Friendly Targets** - All interactive elements now meet 44x44px minimum touch target
+- **Bottom Sheet Modals** - Modals display as full-screen bottom sheets on mobile
+- **Safe Area Support** - Proper padding for devices with notches and home indicators
+- **Responsive Chat** - Message bubbles, actions, and input optimized for small screens
+- **Mobile Welcome Screen** - 2-column persona grid, larger action buttons on mobile
+- **Voice Mode Mobile** - Fully responsive voice overlay with touch-friendly controls
 
 ### v1.1.13 (December 2025)
 - **Semantic Chunking Enabled** - Knowledge Base now uses `autoChunk()` for intelligent document chunking

@@ -57,7 +57,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   ];
 
   return (
-    <div className="min-h-full flex flex-col items-center justify-start py-8 md:py-12 text-theme-text-muted px-4">
+    <div className="min-h-full flex flex-col items-center justify-start py-6 sm:py-8 md:py-12 text-theme-text-muted px-3 sm:px-4">
       {/* Hero Section */}
       <div className="relative mb-6 flex-shrink-0">
         {/* Animated glow background */}
@@ -114,7 +114,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       {/* Persona Selection - Enhanced Cards */}
       <div className="w-full max-w-xl mb-6 flex-shrink-0">
         <p className="text-[10px] text-theme-text-muted uppercase tracking-wider mb-2 text-center font-medium">Choose Mode</p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {(Object.entries(personaConfigs) as [PersonaType, typeof personaConfigs[PersonaType]][]).map(([id, config]) => {
             const Icon = config.icon;
             const isActive = persona === id;
@@ -183,21 +183,21 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </div>
       
       {/* Quick Actions - Compact */}
-      <div className="flex items-center gap-2 flex-wrap justify-center flex-shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center flex-shrink-0">
         {quickActions.map((item, i) => (
           <button 
             key={i} 
             onClick={item.action}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-bg-secondary/40 border border-theme-border-primary/50 hover:border-theme-border-secondary rounded-lg transition-all hover:bg-theme-bg-secondary/70 group text-xs"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 sm:py-1.5 bg-theme-bg-secondary/40 border border-theme-border-primary/50 hover:border-theme-border-secondary rounded-lg transition-all hover:bg-theme-bg-secondary/70 group text-xs touch-target-sm"
           >
-            <item.icon size={12} className="text-theme-text-muted group-hover:text-indigo-400 transition-colors" />
+            <item.icon size={14} className="sm:w-3 sm:h-3 text-theme-text-muted group-hover:text-indigo-400 transition-colors" />
             <span className="text-theme-text-secondary group-hover:text-theme-text-primary">{item.title}</span>
           </button>
         ))}
       </div>
       
-      {/* Keyboard Shortcut Hint */}
-      <p className="text-[10px] text-theme-text-muted mt-4 flex items-center gap-1.5 flex-shrink-0">
+      {/* Keyboard Shortcut Hint - Hidden on mobile */}
+      <p className="hidden sm:flex text-[10px] text-theme-text-muted mt-4 items-center gap-1.5 flex-shrink-0">
         <Keyboard size={10} />
         Press <kbd className="px-1 py-0.5 bg-theme-bg-tertiary rounded text-theme-text-secondary font-mono text-[9px]">?</kbd> for shortcuts
       </p>

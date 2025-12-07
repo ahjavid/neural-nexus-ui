@@ -1213,17 +1213,17 @@ export default function App() {
             </Tooltip>
           </div>
         ) : (
-          <div className="h-16 border-b border-theme-border-primary flex items-center justify-between px-4 md:px-6 bg-theme-bg-primary/80 backdrop-blur-sm z-10">
-            <div className="flex items-center gap-3">
+          <div className="h-14 sm:h-16 border-b border-theme-border-primary flex items-center justify-between px-3 sm:px-4 md:px-6 bg-theme-bg-primary/80 backdrop-blur-sm z-10 safe-area-top">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               {!isSidebarOpen && (
-                <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 hover:bg-theme-bg-elevated rounded-lg text-theme-text-muted">
+                <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-1 sm:-ml-2 hover:bg-theme-bg-elevated rounded-lg text-theme-text-muted touch-target-sm">
                   <ChevronRight size={20} />
                 </button>
               )}
-              <div className="flex items-center gap-4">
-                <h2 className="text-theme-text-primary font-medium text-sm md:text-base hidden md:block">{currentSession.title}</h2>
+              <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                <h2 className="text-theme-text-primary font-medium text-sm truncate hidden sm:block max-w-[120px] md:max-w-none">{currentSession.title}</h2>
                 {/* Persona Matrix */}
-                <div className="bg-theme-bg-secondary p-1 rounded-lg border border-theme-border-secondary flex items-center gap-1">
+                <div className="bg-theme-bg-secondary p-0.5 sm:p-1 rounded-lg border border-theme-border-secondary flex items-center gap-0.5 sm:gap-1">
                   {Object.entries(personaConfigs).map(([id, config]) => {
                     const Icon = config.icon;
                     const isActive = persona === id;
@@ -1237,7 +1237,7 @@ export default function App() {
                       <Tooltip key={id} content={`${config.name} (Temp: ${config.params.temperature})`} position="bottom">
                         <button
                           onClick={() => switchPersona(id as PersonaType)}
-                          className={`p-1.5 rounded transition-all ${colorClasses[config.color]} ${isActive ? 'shadow' : ''}`}
+                          className={`p-1.5 sm:p-1.5 rounded transition-all touch-target-sm ${colorClasses[config.color]} ${isActive ? 'shadow' : ''}`}
                         >
                           <Icon size={14} />
                         </button>
@@ -1260,7 +1260,7 @@ export default function App() {
                     content={`~${formatTokenCount(contextUsage.tokens)} tokens used of ${formatTokenCount(params.num_ctx)} context`} 
                     position="bottom"
                   >
-                    <div className={`hidden lg:flex items-center gap-1.5 text-xs px-2 py-1 rounded-full cursor-default ${
+                    <div className={`hidden md:flex items-center gap-1.5 text-xs px-2 py-1 rounded-full cursor-default ${
                       contextUsage.status === 'critical' ? 'bg-red-500/10 text-red-400' :
                       contextUsage.status === 'warning' ? 'bg-amber-500/10 text-amber-400' :
                       'bg-theme-bg-tertiary text-theme-text-muted'
@@ -1281,17 +1281,17 @@ export default function App() {
                 )}
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 sm:gap-2 shrink-0">
               <Button variant="accent" onClick={startVoiceMode} icon={Phone} title="Omni-Voice Mode" tooltipPosition="bottom">
-                <span className="hidden md:inline text-xs">Voice</span>
+                <span className="hidden sm:inline text-xs">Voice</span>
               </Button>
-              <Button variant="ghost" onClick={() => setZenMode(true)} icon={Layout} title="Zen Mode" tooltipPosition="bottom" />
+              <Button variant="ghost" onClick={() => setZenMode(true)} icon={Layout} title="Zen Mode" tooltipPosition="bottom" className="hidden sm:flex" />
             </div>
           </div>
         )}
 
         {/* Chat Feed */}
-        <div className={`flex-1 min-h-0 px-4 md:px-6 py-2 space-y-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent`}>
+        <div className={`flex-1 min-h-0 px-3 sm:px-4 md:px-6 py-2 space-y-4 sm:space-y-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent momentum-scroll`}>
           {messages.length === 0 ? (
             <WelcomeScreen
               connectionStatus={connectionStatus}

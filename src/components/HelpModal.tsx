@@ -40,11 +40,13 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-theme-bg-secondary border border-theme-border-primary rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl p-4 sm:p-6 relative max-h-[90vh] sm:max-h-none overflow-y-auto">
+        {/* Swipe indicator for mobile */}
+        <div className="swipe-indicator sm:hidden" />
         <button 
           onClick={onClose} 
-          className="absolute top-4 right-4 text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1"
+          className="absolute top-4 right-4 text-theme-text-muted hover:text-theme-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-2 -mr-1 -mt-1 touch-target-sm"
         >
           <X size={20} />
         </button>

@@ -31,19 +31,19 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   };
 
   return (
-    <div className={`flex gap-4 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'} group/msg`}>
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-1 shadow-lg ${
+    <div className={`flex gap-2 sm:gap-4 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'} group/msg`}>
+      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 mt-1 shadow-lg ${
         isUser ? 'order-2 bg-theme-bg-elevated border border-theme-border-secondary' : 'bg-theme-bg-secondary border border-theme-border-secondary'
       }`}>
         {isUser ? (
-          <span className="text-xs font-bold text-theme-text-primary">ME</span>
+          <span className="text-[10px] sm:text-xs font-bold text-theme-text-primary">ME</span>
         ) : (
-          <Terminal size={14} className="text-indigo-400" />
+          <Terminal size={14} className="text-indigo-400 sm:w-[14px] sm:h-[14px] w-[12px] h-[12px]" />
         )}
       </div>
 
-      <div className={`flex flex-col max-w-[85%] md:max-w-[75%] w-full ${isUser ? 'items-end' : 'items-start'}`}>
-        <div className={`relative px-5 py-4 rounded-2xl shadow-md w-full ${
+      <div className={`flex flex-col max-w-[85%] sm:max-w-[80%] md:max-w-[75%] w-full ${isUser ? 'items-end' : 'items-start'}`}>
+        <div className={`relative px-3 py-3 sm:px-5 sm:py-4 rounded-2xl shadow-md w-full ${
           isUser 
             ? 'bg-theme-bg-elevated border border-theme-border-secondary text-theme-text-primary rounded-tr-sm' 
             : 'bg-theme-bg-secondary border border-theme-border-primary text-theme-text-primary rounded-tl-sm'
@@ -106,29 +106,29 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         
         {/* Assistant message actions */}
         {!isUser && message.content !== '' && (
-          <div className="flex items-center gap-3 mt-2 ml-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+          <div className="flex items-center gap-3 mt-2 ml-1 opacity-100 sm:opacity-0 sm:group-hover/msg:opacity-100 transition-opacity">
             <button 
               onClick={handleCopy}
-              className={`text-theme-text-muted hover:text-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded ${
+              className={`p-1.5 text-theme-text-muted hover:text-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded touch-target-sm ${
                 copied ? 'text-emerald-500' : ''
               }`}
               title={copied ? 'Copied!' : 'Copy message'}
             >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? <Check size={16} className="sm:w-[14px] sm:h-[14px]" /> : <Copy size={16} className="sm:w-[14px] sm:h-[14px]" />}
             </button>
             <button 
               onClick={() => onSpeakMessage(message.content, index)} 
-              className={`text-theme-text-muted hover:text-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded ${
+              className={`p-1.5 text-theme-text-muted hover:text-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded touch-target-sm ${
                 speakingMsgId === index ? 'text-indigo-500 animate-pulse' : ''
               }`}
               title={speakingMsgId === index ? 'Stop speaking' : 'Read aloud'}
             >
-              {speakingMsgId === index ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              {speakingMsgId === index ? <VolumeX size={16} className="sm:w-[14px] sm:h-[14px]" /> : <Volume2 size={16} className="sm:w-[14px] sm:h-[14px]" />}
             </button>
             {message.timing && (
               <span className="flex items-center gap-2 text-[10px] text-theme-text-muted font-mono">
                 <span className="flex items-center gap-1"><Clock size={10} />{message.timing}s</span>
-                {message.tokenSpeed && <span className="flex items-center gap-1"><Zap size={10} />{message.tokenSpeed} t/s</span>}
+                {message.tokenSpeed && <span className="hidden sm:flex items-center gap-1"><Zap size={10} />{message.tokenSpeed} t/s</span>}
               </span>
             )}
           </div>

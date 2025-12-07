@@ -309,3 +309,125 @@ textarea:focus {
   background: #adb5bd;
 }
 
+/* ============================================
+   Mobile Responsive Styles
+   ============================================ */
+
+/* Safe area padding for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Touch-friendly tap targets (min 44x44px) */
+@media (pointer: coarse) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  button, [role="button"] {
+    min-height: 40px;
+  }
+  
+  /* Larger touch areas for small buttons */
+  .touch-target-sm {
+    min-height: 36px;
+    min-width: 36px;
+  }
+}
+
+/* Mobile sidebar overlay backdrop */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 25;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Prevent text selection during swipe */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Smooth momentum scrolling on iOS */
+.momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide elements on mobile */
+@media (max-width: 640px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Show elements only on mobile */
+@media (min-width: 641px) {
+  .show-mobile-only {
+    display: none !important;
+  }
+}
+
+/* Mobile-optimized modal */
+@media (max-width: 640px) {
+  .modal-mobile-full {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .modal-mobile-sheet {
+    max-width: 100% !important;
+    max-height: 90vh !important;
+    border-radius: 1rem 1rem 0 0 !important;
+    margin-top: auto !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+  }
+}
+
+/* Prevent body scroll when modal is open (mobile) */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* Mobile header compact mode */
+@media (max-width: 480px) {
+  .header-compact {
+    height: 56px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+/* Swipe indicator for bottom sheets */
+.swipe-indicator {
+  width: 36px;
+  height: 4px;
+  background: var(--border-secondary);
+  border-radius: 2px;
+  margin: 8px auto;
+}
+

@@ -100,7 +100,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="px-4 md:px-6 py-2 bg-theme-bg-primary">
+    <div className="px-3 sm:px-4 md:px-6 py-2 bg-theme-bg-primary safe-area-bottom">
       <div className="max-w-4xl mx-auto relative">
         {/* File Error Alert */}
         {fileError && (
@@ -188,22 +188,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <button 
                 onClick={() => fileInputRef.current?.click()} 
                 disabled={streaming || !selectedModel} 
-                className="p-1.5 text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
+                className="p-2 sm:p-1.5 text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 touch-target-sm" 
               >
-                <Plus size={18} />
+                <Plus size={20} className="sm:w-[18px] sm:h-[18px]" />
               </button>
             </Tooltip>
             <Tooltip content={isListening ? "Stop listening" : "Voice input"} position="top">
               <button 
                 onClick={onToggleListening} 
                 disabled={streaming || !selectedModel} 
-                className={`p-1.5 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                className={`p-2 sm:p-1.5 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 touch-target-sm ${
                   isListening 
                     ? 'text-red-400 bg-red-500/10 animate-pulse' 
                     : 'text-theme-text-muted hover:text-green-400 hover:bg-green-500/10'
                 }`} 
               >
-                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                {isListening ? <MicOff size={20} className="sm:w-[18px] sm:h-[18px]" /> : <Mic size={20} className="sm:w-[18px] sm:h-[18px]" />}
               </button>
             </Tooltip>
           </div>
@@ -220,9 +220,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             rows={1}
           />
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {executingTools && (
-              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/30 animate-pulse">
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/30 animate-pulse">
                 <Wrench size={12} className="text-emerald-400" />
                 <span className="text-[10px] text-emerald-400 font-medium">Using tools...</span>
               </div>
@@ -230,29 +230,32 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             {streaming ? (
               <button 
                 onClick={onStop} 
-                className="p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                className="p-2.5 sm:p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500/50 touch-target-sm"
               >
-                <Square size={16} fill="currentColor" />
+                <Square size={18} className="sm:w-4 sm:h-4" fill="currentColor" />
               </button>
             ) : (
               <button 
                 onClick={onSend} 
                 disabled={(!input.trim() && attachments.length === 0) || !selectedModel} 
-                className={`p-2 rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                className={`p-2.5 sm:p-2 rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 touch-target-sm ${
                   (input.trim() || attachments.length > 0) 
                     ? 'bg-indigo-600 text-white shadow-md' 
                     : 'bg-theme-bg-tertiary text-theme-text-muted'
                 }`}
               >
-                <Send size={16} />
+                <Send size={18} className="sm:w-4 sm:h-4" />
               </button>
             )}
           </div>
         </div>
         
         <div className="flex justify-center mt-2">
-          <span className="text-[10px] text-theme-text-muted font-medium">
+          <span className="text-[10px] text-theme-text-muted font-medium hidden sm:block">
             Drag & Drop files • <kbd className="font-sans">Shift+Enter</kbd> new line
+          </span>
+          <span className="text-[10px] text-theme-text-muted font-medium sm:hidden">
+            Tap + to attach files
           </span>
         </div>
       </div>
