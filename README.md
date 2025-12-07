@@ -2,14 +2,15 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.1-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
 ## ✨ Features
 
-- **🎨 Modern Dark UI** - Beautiful, responsive interface with smooth animations
+- **🎨 Light & Dark Themes** - Professional color palette with system preference detection
 - **🧠 Neurosymbolic AI Search** - Hybrid search combining neural embeddings with symbolic reasoning
+- **⚡ Persistent Embedding Cache** - Embeddings saved to IndexedDB for instant RAG on page reload
 - **🗣️ Voice Mode** - Hands-free conversation with speech recognition and text-to-speech
 - **🔧 Tool Calling** - AI can use tools for calculations, web search, RAG, and more
 - **🔍 Tavily Search** - AI-powered web search with direct answers (API key required)
@@ -18,6 +19,7 @@ A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI m
 - **🎭 Personas** - Switch between chat modes (Default, Coder, Writer, Analyst)
 - **🧘 Zen Mode** - Distraction-free, minimal interface
 - **⚙️ Advanced Settings** - Full control over model parameters (temperature, top_k, top_p, etc.)
+- **🔢 Embedding Model Selection** - Choose from available Ollama embedding models
 - **💾 Session Management** - Multiple chat sessions with auto-save using IndexedDB
 - **📎 File Attachments** - Upload images, code files, and documents
 - **📄 Document Processing** - Extract text from PDF, Word (.docx), Excel, and more
@@ -82,6 +84,18 @@ The UI will auto-detect available models.
 ### Environment
 
 The app connects to Ollama at `http://localhost:11434` by default. You can change this in the Settings panel.
+
+## 🎨 Themes
+
+Neural Nexus supports three theme modes:
+
+| Mode | Description |
+|------|-------------|
+| **Dark** | Default dark theme with blue accents |
+| **Light** | Professional light theme with proper contrast |
+| **System** | Follows your OS preference |
+
+Toggle themes using the sun/moon button in the header.
 
 ## ⌨️ Keyboard Shortcuts
 
@@ -522,6 +536,28 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [PDF.js](https://mozilla.github.io/pdf.js/) - PDF text extraction
 - [Mammoth](https://github.com/mwilliamson/mammoth.js) - Word document processing
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
+
+## 📋 Changelog
+
+### v1.1.1 (December 2024)
+- **Embedding Cache Persistence** - Embeddings are now saved to IndexedDB, making RAG search instant on page reload instead of re-embedding all documents
+
+### v1.1.0 (December 2024)
+- **Light & Dark Themes** - Full theme system with light, dark, and system preference modes
+- **Professional Color Palette** - Carefully selected colors for both themes with proper contrast
+- **Theme Toggle** - Easy switching via button in header
+
+### v1.0.9 (December 2024)
+- **Embedding Model Dropdown** - Select from available Ollama embedding models in Settings
+- **Auto-detection** - Automatically detects embedding-capable models from Ollama
+
+### v1.0.0 (November 2024)
+- Initial release with full feature set
+- Neurosymbolic AI search with hybrid scoring
+- Tool calling with 9 built-in tools
+- Voice mode with speech recognition
+- Knowledge base with document processing
+- IndexedDB storage for sessions and knowledge
 
 ---
 

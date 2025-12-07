@@ -11,26 +11,32 @@ describe('HelpModal Component', () => {
   it('renders modal content when open', () => {
     render(<HelpModal isOpen={true} onClose={() => {}} />);
     
-    expect(screen.getByText('Shortcuts')).toBeInTheDocument();
-    expect(screen.getByText('Send')).toBeInTheDocument();
+    expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument();
+    expect(screen.getByText('Send message')).toBeInTheDocument();
     expect(screen.getByText('Enter')).toBeInTheDocument();
-    expect(screen.getByText('New Line')).toBeInTheDocument();
-    expect(screen.getByText('Commands')).toBeInTheDocument();
+    expect(screen.getByText('New line')).toBeInTheDocument();
+    expect(screen.getByText('Chat')).toBeInTheDocument();
   });
 
   it('displays all keyboard shortcuts', () => {
     render(<HelpModal isOpen={true} onClose={() => {}} />);
     
+    // Check for unique shortcuts (avoiding "/" which appears twice)
     const shortcuts = [
-      { label: 'Send', key: 'Enter' },
-      { label: 'New Line', key: 'Shift+Ent' },
-      { label: 'Commands', key: '/' },
-      { label: 'Close', key: 'Esc' }
+      { label: 'Send message', key: 'Enter' },
+      { label: 'New line', key: 'Shift+Enter' },
+      { label: 'Slash commands' },
+      { label: 'Close modal', key: 'Esc' }
     ];
 
     shortcuts.forEach(({ label, key }) => {
       expect(screen.getByText(label)).toBeInTheDocument();
-      expect(screen.getByText(key)).toBeInTheDocument();
+      if (key) {
+        expect(screen.getByText(key)).toBeInTheDocument();
+      }
     });
+    
+    // "/" appears in both shortcut and tip, so use getAllByText
+    expect(screen.getAllByText('/')).toHaveLength(2);
   });
 });

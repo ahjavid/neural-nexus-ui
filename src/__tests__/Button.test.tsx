@@ -30,7 +30,7 @@ describe('Button Component', () => {
     expect(screen.getByText('Danger')).toHaveClass('text-red-400');
 
     rerender(<Button variant="ghost">Ghost</Button>);
-    expect(screen.getByText('Ghost')).toHaveClass('text-gray-400');
+    expect(screen.getByText('Ghost')).toHaveClass('text-theme-text-muted');
   });
 
   it('renders with icon when provided', () => {
