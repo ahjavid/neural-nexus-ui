@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Terminal, Clock, Zap, Volume2, VolumeX, FileCode, FileText, FileSpreadsheet, Copy, Check } from 'lucide-react';
 import { MessageContent } from './MessageContent';
 import type { Message } from '../types';
@@ -9,16 +9,28 @@ interface ChatMessageProps {
   index: number;
   speakingMsgId: number | null;
   onSpeakMessage: (text: string, index: number) => void;
+  isSelected?: boolean;
+  onSelect?: () => void;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   index,
   speakingMsgId,
-  onSpeakMessage
+  onSpeakMessage,
+  isSelected = false,
+  onSelect
 }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
+  const messageRef = useRef<HTMLDivElement>(null);
+
+  // Scroll into view when selected
+  useEffect(() => {
+    if (isSelected && messageRef.current) {
+      messageRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [isSelected]);
 
   const handleCopy = async () => {
     try {
@@ -31,7 +43,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   };
 
   return (
-    <div className={`flex gap-4 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'} group/msg`}>
+    <div 
+      ref={messageRef}
+      onClick={onSelect}
+      className={`flex gap-4 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'} group/msg cursor-pointer rounded-xl transition-all ${
+        isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-theme-bg-primary' : ''
+      }`}
+    >
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-1 shadow-lg ${
         isUser ? 'order-2 bg-indigo-600' : 'bg-theme-bg-secondary border border-theme-border-secondary'
       }`}>

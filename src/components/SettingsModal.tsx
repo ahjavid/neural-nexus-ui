@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle } from 'lucide-react';
 import { Button } from './Button';
 import type { ModelParams } from '../types';
 import { formatBytes, getApiUrl } from '../utils/helpers';
 import { toolRegistry, setToolConfig, getToolConfigValue } from '../utils/tools';
+import { downloadExport, readImportFile, importData, type ExportData } from '../utils/storage';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface SettingsModalProps {
@@ -62,6 +63,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showApiKey, setShowApiKey] = useState(false);
   const [embeddingModels, setEmbeddingModels] = useState<string[]>([]);
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
+  
+  // Export/Import state
+  const [exportStatus, setExportStatus] = useState<'idle' | 'exporting' | 'success' | 'error'>('idle');
+  const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
+  const [importResult, setImportResult] = useState<{ sessions: number; knowledge: number; settings: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle export
+  const handleExport = async () => {
+    setExportStatus('exporting');
+    try {
+      await downloadExport({ includeSessions: true, includeKnowledge: true, includeSettings: true });
+      setExportStatus('success');
+      setTimeout(() => setExportStatus('idle'), 2000);
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('error');
+      setTimeout(() => setExportStatus('idle'), 3000);
+    }
+  };
+
+  // Handle import
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setImportStatus('importing');
+    try {
+      const data: ExportData = await readImportFile(file);
+      const result = await importData(data, { 
+        importSessions: true, 
+        importKnowledge: true, 
+        importSettings: true,
+        mergeMode: 'merge'
+      });
+      setImportResult(result);
+      setImportStatus('success');
+      
+      // Reload page to apply imported data
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (err) {
+      console.error('Import failed:', err);
+      setImportStatus('error');
+      setTimeout(() => setImportStatus('idle'), 3000);
+    }
+    
+    // Reset file input
+    e.target.value = '';
+  };
 
   // Fetch embedding models from Ollama
   const fetchEmbeddingModels = useCallback(async () => {
@@ -600,6 +656,73 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Refresh
                   </button>
                 </div>
+              </div>
+              
+              {/* Export/Import */}
+              <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider pt-2 border-t border-theme-border-primary">Backup & Restore</div>
+              
+              <div className="bg-theme-bg-primary rounded-lg p-3 space-y-3">
+                <p className="text-[10px] text-theme-text-muted">Export your sessions, knowledge base, and settings to a JSON file. Import to restore on any device.</p>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExport}
+                    disabled={exportStatus === 'exporting'}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded border transition-colors ${
+                      exportStatus === 'success' 
+                        ? 'text-green-400 border-green-500/30 bg-green-500/10'
+                        : exportStatus === 'error'
+                        ? 'text-red-400 border-red-500/30 bg-red-500/10'
+                        : 'text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 border-indigo-500/30'
+                    }`}
+                  >
+                    {exportStatus === 'exporting' ? (
+                      <><Loader2 size={14} className="animate-spin" /> Exporting...</>
+                    ) : exportStatus === 'success' ? (
+                      <><Check size={14} /> Exported!</>
+                    ) : exportStatus === 'error' ? (
+                      <><AlertCircle size={14} /> Failed</>
+                    ) : (
+                      <><Download size={14} /> Export All</>
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={handleImportClick}
+                    disabled={importStatus === 'importing'}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded border transition-colors ${
+                      importStatus === 'success' 
+                        ? 'text-green-400 border-green-500/30 bg-green-500/10'
+                        : importStatus === 'error'
+                        ? 'text-red-400 border-red-500/30 bg-red-500/10'
+                        : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 border-emerald-500/30'
+                    }`}
+                  >
+                    {importStatus === 'importing' ? (
+                      <><Loader2 size={14} className="animate-spin" /> Importing...</>
+                    ) : importStatus === 'success' ? (
+                      <><Check size={14} /> Imported!</>
+                    ) : importStatus === 'error' ? (
+                      <><AlertCircle size={14} /> Failed</>
+                    ) : (
+                      <><Upload size={14} /> Import</>
+                    )}
+                  </button>
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </div>
+                
+                {importStatus === 'success' && importResult && (
+                  <p className="text-[10px] text-green-400">
+                    Imported {importResult.sessions} sessions, {importResult.knowledge} knowledge entries, {importResult.settings} settings. Reloading...
+                  </p>
+                )}
               </div>
               
               {/* Reset Button */}

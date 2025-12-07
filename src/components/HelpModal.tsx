@@ -23,7 +23,9 @@ const shortcutGroups = [
       { label: "New chat", key: "Ctrl+N" },
       { label: "Zen mode", key: "Ctrl+Shift+Z" },
       { label: "Show shortcuts", key: "Shift+?" },
-      { label: "Close modal", key: "Esc" },
+      { label: "Close modal / deselect", key: "Esc" },
+      { label: "Navigate messages", key: "↑ / ↓ or j/k" },
+      { label: "Copy selected msg", key: "c" },
     ]
   },
   {

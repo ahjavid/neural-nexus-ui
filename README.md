@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.1-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.3-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -538,6 +538,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.3 (December 2024)
+- **Export/Import Data** - Backup and restore all sessions, knowledge, and settings as JSON
+- **Keyboard Navigation** - Navigate chat messages with ↑/↓ or j/k keys, copy with c, deselect with Esc
+
+### v1.1.2 (December 2024)
+- **Test Fixes** - Fixed unit tests after theme changes
+- **Documentation** - Added changelog and updated docs
 
 ### v1.1.1 (December 2024)
 - **Embedding Cache Persistence** - Embeddings are now saved to IndexedDB, making RAG search instant on page reload instead of re-embedding all documents

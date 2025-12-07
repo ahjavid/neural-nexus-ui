@@ -26,7 +26,9 @@ describe('HelpModal Component', () => {
       { label: 'Send message', key: 'Enter' },
       { label: 'New line', key: 'Shift+Enter' },
       { label: 'Slash commands' },
-      { label: 'Close modal', key: 'Esc' }
+      { label: 'Close modal / deselect', key: 'Esc' },
+      { label: 'Navigate messages', key: '↑ / ↓ or j/k' },
+      { label: 'Copy selected msg', key: 'c' }
     ];
 
     shortcuts.forEach(({ label, key }) => {
