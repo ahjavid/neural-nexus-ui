@@ -85,6 +85,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Remove default focus outline on textarea */
+textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 /* Fallback for browsers without dvh support */
 @supports not (height: 100dvh) {
   html, body, #root {

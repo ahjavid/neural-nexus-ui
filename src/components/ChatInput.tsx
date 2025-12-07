@@ -204,7 +204,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={isListening ? "Listening..." : "Message... (Type / for commands)"}
             disabled={!selectedModel || streaming}
-            className="w-full bg-transparent text-theme-text-primary p-3 max-h-40 min-h-[50px] resize-none focus:outline-none focus:ring-0 placeholder-theme-text-muted disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
+            className="w-full bg-transparent text-theme-text-primary p-3 max-h-40 min-h-[50px] resize-none outline-none border-none placeholder-theme-text-muted disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
+            style={{ boxShadow: 'none' }}
             rows={1}
             onInput={handleTextareaInput}
           />
