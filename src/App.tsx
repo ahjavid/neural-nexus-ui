@@ -115,7 +115,6 @@ export default function App() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState<number | null>(null);
-  const [selectedMsgIdx, setSelectedMsgIdx] = useState<number | null>(null);
   const [slashCmdsVisible, setSlashCmdsVisible] = useState(false);
   const [persona, setPersona] = useState<PersonaType>('default');
 
@@ -280,10 +279,12 @@ export default function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Help modal - Shift+?
       if (e.key === '?' && e.shiftKey && (document.activeElement as HTMLElement)?.tagName !== 'TEXTAREA') {
         setHelpOpen(true);
       }
 
+      // Escape closes modals and zen mode
       if (e.key === 'Escape') {
         setSettingsOpen(false);
         setHelpOpen(false);
@@ -292,57 +293,18 @@ export default function App() {
         setKnowledgeOpen(false);
         setVoiceModeOpen(false);
         setZenMode(false);
-        setSelectedMsgIdx(null);
       }
 
+      // Zen mode toggle - Ctrl+Shift+Z (doesn't conflict with browser)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z') {
         e.preventDefault();
         setZenMode(prev => !prev);
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n' && !e.shiftKey) {
-        e.preventDefault();
-        createNewChat();
-      }
-
-      // Arrow key navigation through messages
-      const isInTextArea = (document.activeElement as HTMLElement)?.tagName === 'TEXTAREA';
-      const isInInput = (document.activeElement as HTMLElement)?.tagName === 'INPUT';
-      
-      if (!isInTextArea && !isInInput && messages.length > 0) {
-        if (e.key === 'ArrowUp' || e.key === 'k') {
-          e.preventDefault();
-          setSelectedMsgIdx(prev => {
-            if (prev === null) return messages.length - 1;
-            return Math.max(0, prev - 1);
-          });
-        }
-        
-        if (e.key === 'ArrowDown' || e.key === 'j') {
-          e.preventDefault();
-          setSelectedMsgIdx(prev => {
-            if (prev === null) return 0;
-            const newIdx = prev + 1;
-            if (newIdx >= messages.length) {
-              return null; // Deselect when going past the last message
-            }
-            return newIdx;
-          });
-        }
-
-        // Copy selected message content
-        if ((e.key === 'c' || e.key === 'C') && selectedMsgIdx !== null && !e.ctrlKey && !e.metaKey) {
-          const msg = messages[selectedMsgIdx];
-          if (msg) {
-            navigator.clipboard.writeText(msg.content);
-          }
-        }
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [messages.length, selectedMsgIdx]);
+  }, []);
 
   // Slash commands visibility
   useEffect(() => {
@@ -382,7 +344,6 @@ export default function App() {
     };
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
-    setSelectedMsgIdx(null);
     if (window.innerWidth < 1024) setSidebarOpen(false);
   }, [models]);
 
@@ -1115,7 +1076,6 @@ export default function App() {
           currentSessionId={currentSessionId}
           onSelectSession={(id) => {
             setCurrentSessionId(id);
-            setSelectedMsgIdx(null);
             if (window.innerWidth < 1024) setSidebarOpen(false);
           }}
           onCreateNew={createNewChat}
@@ -1228,8 +1188,6 @@ export default function App() {
                 index={idx}
                 speakingMsgId={speakingMsgId}
                 onSpeakMessage={speakMessage}
-                isSelected={selectedMsgIdx === idx}
-                onSelect={() => setSelectedMsgIdx(idx)}
               />
             ))
           )}

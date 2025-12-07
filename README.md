@@ -541,7 +541,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### v1.1.3 (December 2024)
 - **Export/Import Data** - Backup and restore all sessions, knowledge, and settings as JSON
-- **Keyboard Navigation** - Navigate chat messages with ↑/↓ or j/k keys, copy with c, deselect with Esc
 
 ### v1.1.2 (December 2024)
 - **Test Fixes** - Fixed unit tests after theme changes
