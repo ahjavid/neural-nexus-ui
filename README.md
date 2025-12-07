@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.6-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.7-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -539,42 +539,48 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📋 Changelog
 
-### v1.1.6 (December 2024)
+### v1.1.7 (December 2025)
+- **Query Expansion** - Expand search queries with synonyms, acronyms, and related terms for better recall
+- **Semantic Chunking** - Intelligent document chunking with 5 strategies: fixed, sentence, semantic, hierarchical, entity-aware
+- **Auto-Chunk Detection** - Automatically selects best chunking strategy based on document content
+- **Helper Functions** - Added `getSynonyms()`, `expandAcronym()`, `addSynonyms()`, `addAcronym()` for customization
+
+### v1.1.6 (December 2025)
 - **Enhanced Neurosymbolic Search** - Implemented BM25 sparse retrieval, Reciprocal Rank Fusion (RRF), and Maximal Marginal Relevance (MMR)
 - **BM25 Keyword Scoring** - TF-IDF style keyword matching complements embedding-based semantic search
 - **RRF Fusion** - More robust rank combination than weighted sum, used by Google for hybrid retrieval
 - **MMR Diversity** - Reduces redundancy in search results by balancing relevance with diversity
 - **New `enhancedHybridSearch` API** - Full pipeline combining BM25 + RRF + MMR with configurable options
 
-### v1.1.5 (December 2024)
+### v1.1.5 (December 2025)
 - **Professional UI Refinements** - More compact chatbox with reduced padding and sizing
 - **Neutral Color Scheme** - Replaced purple/indigo user message bubbles with neutral theme colors
 - **Enhanced Chat History** - Added time-based grouping (Today, Yesterday, Last 7 Days, etc.) with message counts
 - **Improved Sidebar** - Cleaner session list with better visual hierarchy and spacing
 
-### v1.1.4 (December 2024)
+### v1.1.4 (December 2025)
 - **UI Polish** - Removed purple focus outline on chat textarea for cleaner look
 
-### v1.1.3 (December 2024)
+### v1.1.3 (December 2025)
 - **Export/Import Data** - Backup and restore all sessions, knowledge, and settings as JSON
 
-### v1.1.2 (December 2024)
+### v1.1.2 (December 2025)
 - **Test Fixes** - Fixed unit tests after theme changes
 - **Documentation** - Added changelog and updated docs
 
-### v1.1.1 (December 2024)
+### v1.1.1 (December 2025)
 - **Embedding Cache Persistence** - Embeddings are now saved to IndexedDB, making RAG search instant on page reload instead of re-embedding all documents
 
-### v1.1.0 (December 2024)
+### v1.1.0 (December 2025)
 - **Light & Dark Themes** - Full theme system with light, dark, and system preference modes
 - **Professional Color Palette** - Carefully selected colors for both themes with proper contrast
 - **Theme Toggle** - Easy switching via button in header
 
-### v1.0.9 (December 2024)
+### v1.0.9 (December 2025)
 - **Embedding Model Dropdown** - Select from available Ollama embedding models in Settings
 - **Auto-detection** - Automatically detects embedding-capable models from Ollama
 
-### v1.0.0 (November 2024)
+### v1.0.0 (November 2025)
 - Initial release with full feature set
 - Neurosymbolic AI search with hybrid scoring
 - Tool calling with 9 built-in tools

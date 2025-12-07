@@ -1,5 +1,21 @@
 export { dbManager, migrateFromLocalStorage } from './storage';
-export { processDocument, extractPdfText, extractWordText, extractExcelText, chunkText, fetchUrlContent } from './documents';
+export { 
+  processDocument, 
+  extractPdfText, 
+  extractWordText, 
+  extractExcelText, 
+  chunkText, 
+  fetchUrlContent,
+  // Semantic chunking
+  semanticChunk,
+  autoChunk,
+  getDocumentSummary,
+  // Types
+  type ChunkingStrategy,
+  type ChunkOptions,
+  type SemanticChunkOptions,
+  type EnhancedKnowledgeChunk
+} from './documents';
 export { formatBytes, formatFileSize, getFileExtension, FILE_CONFIG, DEFAULT_PARAMS, getApiUrl } from './helpers';
 export { toolRegistry, ToolRegistry, getLastSearchExplanation, clearEmbeddingCache } from './tools';
 
@@ -22,6 +38,12 @@ export {
   mmrRerank,
   diversityFilter,
   enhancedHybridSearch,
+  // Query expansion
+  expandQuery,
+  getSynonyms,
+  expandAcronym,
+  addSynonyms,
+  addAcronym,
   // Types
   type EntityType,
   type ExtractedEntity,
@@ -40,6 +62,8 @@ export {
   type RankedItem,
   type MMROptions,
   type MMRItem,
-  type EnhancedHybridSearchOptions
+  type EnhancedHybridSearchOptions,
+  type ExpandedQuery,
+  type QueryExpansionOptions
 } from './neurosymbolic';
 

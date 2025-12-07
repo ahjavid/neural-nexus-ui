@@ -1781,6 +1781,290 @@ export const enhancedHybridSearch = async (
   return finalResults;
 };
 
+// ============================================
+// Query Expansion
+// ============================================
+
+/**
+ * Common synonyms for query expansion
+ * Maps common terms to their synonyms and related terms
+ */
+const SYNONYM_MAP: Map<string, string[]> = new Map([
+  // Technical terms
+  ['api', ['interface', 'endpoint', 'service', 'rest', 'graphql']],
+  ['auth', ['authentication', 'authorization', 'login', 'signin', 'credential']],
+  ['authenticate', ['login', 'signin', 'authorize', 'verify']],
+  ['config', ['configuration', 'settings', 'options', 'preferences', 'setup']],
+  ['db', ['database', 'storage', 'datastore', 'repository']],
+  ['database', ['db', 'storage', 'datastore', 'repository', 'sql', 'nosql']],
+  ['error', ['exception', 'fault', 'failure', 'bug', 'issue', 'problem']],
+  ['function', ['method', 'procedure', 'routine', 'subroutine', 'handler']],
+  ['method', ['function', 'procedure', 'routine', 'operation']],
+  ['test', ['testing', 'spec', 'unit', 'integration', 'e2e', 'qa']],
+  ['user', ['account', 'member', 'customer', 'client', 'person']],
+  
+  // Common verbs
+  ['create', ['make', 'add', 'generate', 'build', 'construct', 'new']],
+  ['delete', ['remove', 'drop', 'erase', 'destroy', 'clear']],
+  ['update', ['modify', 'change', 'edit', 'alter', 'revise', 'patch']],
+  ['get', ['fetch', 'retrieve', 'obtain', 'read', 'load', 'find']],
+  ['find', ['search', 'locate', 'discover', 'lookup', 'query']],
+  ['send', ['transmit', 'dispatch', 'deliver', 'post', 'submit']],
+  
+  // Document/file terms
+  ['file', ['document', 'attachment', 'asset', 'resource']],
+  ['document', ['file', 'doc', 'paper', 'record', 'report']],
+  ['image', ['picture', 'photo', 'graphic', 'img', 'visual']],
+  ['pdf', ['document', 'file', 'report', 'paper']],
+  
+  // Financial terms
+  ['payment', ['transaction', 'purchase', 'charge', 'fee', 'cost']],
+  ['invoice', ['bill', 'receipt', 'statement', 'charge']],
+  ['expense', ['cost', 'spending', 'expenditure', 'payment', 'charge']],
+  ['revenue', ['income', 'earnings', 'sales', 'profit']],
+  
+  // Time-related
+  ['recent', ['latest', 'new', 'current', 'last', 'today']],
+  ['old', ['previous', 'past', 'former', 'earlier', 'historic']],
+]);
+
+/**
+ * Common acronyms and their expansions
+ */
+const ACRONYM_MAP: Map<string, string> = new Map([
+  ['api', 'application programming interface'],
+  ['ui', 'user interface'],
+  ['ux', 'user experience'],
+  ['db', 'database'],
+  ['sql', 'structured query language'],
+  ['html', 'hypertext markup language'],
+  ['css', 'cascading style sheets'],
+  ['js', 'javascript'],
+  ['ts', 'typescript'],
+  ['pdf', 'portable document format'],
+  ['json', 'javascript object notation'],
+  ['xml', 'extensible markup language'],
+  ['url', 'uniform resource locator'],
+  ['http', 'hypertext transfer protocol'],
+  ['https', 'secure hypertext transfer protocol'],
+  ['ai', 'artificial intelligence'],
+  ['ml', 'machine learning'],
+  ['llm', 'large language model'],
+  ['rag', 'retrieval augmented generation'],
+  ['nlp', 'natural language processing'],
+  ['crud', 'create read update delete'],
+  ['rest', 'representational state transfer'],
+  ['jwt', 'json web token'],
+  ['oauth', 'open authorization'],
+  ['sso', 'single sign on'],
+  ['2fa', 'two factor authentication'],
+  ['mfa', 'multi factor authentication'],
+  ['etl', 'extract transform load'],
+  ['roi', 'return on investment'],
+  ['kpi', 'key performance indicator'],
+  ['q1', 'first quarter'],
+  ['q2', 'second quarter'],
+  ['q3', 'third quarter'],
+  ['q4', 'fourth quarter'],
+  ['ytd', 'year to date'],
+  ['mtd', 'month to date'],
+  ['eod', 'end of day'],
+  ['eom', 'end of month'],
+  ['eoy', 'end of year'],
+]);
+
+export interface QueryExpansionOptions {
+  maxExpansions?: number;      // Maximum number of expanded queries
+  includeSynonyms?: boolean;   // Include synonym variations
+  includeAcronyms?: boolean;   // Expand/contract acronyms
+  includeTypos?: boolean;      // Include common typo variations
+  includePartial?: boolean;    // Include partial term matches
+  synonymWeight?: number;      // Weight for synonym matches (0-1)
+}
+
+export interface ExpandedQuery {
+  query: string;
+  type: 'original' | 'synonym' | 'acronym' | 'partial' | 'combined';
+  weight: number;  // Relevance weight (1.0 = original)
+  source?: string; // What triggered this expansion
+}
+
+const DEFAULT_EXPANSION_OPTIONS: Required<QueryExpansionOptions> = {
+  maxExpansions: 5,
+  includeSynonyms: true,
+  includeAcronyms: true,
+  includeTypos: false,
+  includePartial: true,
+  synonymWeight: 0.8
+};
+
+/**
+ * Expand a query into multiple variations for broader search coverage
+ * 
+ * Query expansion improves recall by:
+ * 1. Adding synonyms (auth -> authentication, login)
+ * 2. Expanding acronyms (API -> application programming interface)
+ * 3. Generating partial matches (user auth -> user, authentication)
+ */
+export const expandQuery = (
+  query: string,
+  options: QueryExpansionOptions = {}
+): ExpandedQuery[] => {
+  const opts = { ...DEFAULT_EXPANSION_OPTIONS, ...options };
+  const expansions: ExpandedQuery[] = [];
+  const seen = new Set<string>();
+  
+  // Always include original query with highest weight
+  const normalizedOriginal = query.toLowerCase().trim();
+  expansions.push({
+    query: normalizedOriginal,
+    type: 'original',
+    weight: 1.0
+  });
+  seen.add(normalizedOriginal);
+  
+  // Tokenize query
+  const tokens = normalizedOriginal
+    .replace(/[^\w\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 1);
+  
+  // 1. Synonym expansion
+  if (opts.includeSynonyms) {
+    for (const token of tokens) {
+      const synonyms = SYNONYM_MAP.get(token);
+      if (synonyms) {
+        for (const syn of synonyms.slice(0, 3)) { // Limit synonyms per term
+          const expanded = normalizedOriginal.replace(
+            new RegExp(`\\b${token}\\b`, 'gi'),
+            syn
+          );
+          if (!seen.has(expanded) && expansions.length < opts.maxExpansions) {
+            seen.add(expanded);
+            expansions.push({
+              query: expanded,
+              type: 'synonym',
+              weight: opts.synonymWeight,
+              source: `${token} → ${syn}`
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  // 2. Acronym expansion/contraction
+  if (opts.includeAcronyms) {
+    for (const token of tokens) {
+      // Try expanding acronym
+      const expansion = ACRONYM_MAP.get(token);
+      if (expansion) {
+        const expanded = normalizedOriginal.replace(
+          new RegExp(`\\b${token}\\b`, 'gi'),
+          expansion
+        );
+        if (!seen.has(expanded) && expansions.length < opts.maxExpansions) {
+          seen.add(expanded);
+          expansions.push({
+            query: expanded,
+            type: 'acronym',
+            weight: 0.9,
+            source: `${token} → ${expansion}`
+          });
+        }
+      }
+      
+      // Try contracting to acronym
+      for (const [acronym, full] of ACRONYM_MAP) {
+        if (normalizedOriginal.includes(full)) {
+          const contracted = normalizedOriginal.replace(full, acronym);
+          if (!seen.has(contracted) && expansions.length < opts.maxExpansions) {
+            seen.add(contracted);
+            expansions.push({
+              query: contracted,
+              type: 'acronym',
+              weight: 0.85,
+              source: `${full} → ${acronym}`
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  // 3. Partial/component queries
+  if (opts.includePartial && tokens.length > 2) {
+    // Create query from most important tokens (non-stopwords)
+    const importantTokens = tokens.filter(t => !STOPWORDS.has(t));
+    if (importantTokens.length >= 2 && importantTokens.length < tokens.length) {
+      const partial = importantTokens.join(' ');
+      if (!seen.has(partial) && expansions.length < opts.maxExpansions) {
+        seen.add(partial);
+        expansions.push({
+          query: partial,
+          type: 'partial',
+          weight: 0.7,
+          source: 'key terms only'
+        });
+      }
+    }
+  }
+  
+  // 4. Combined expansion (synonym + acronym for single token queries)
+  if (tokens.length === 1 && opts.includeSynonyms && opts.includeAcronyms) {
+    const token = tokens[0];
+    const synonyms = SYNONYM_MAP.get(token) || [];
+    const acronymExpansion = ACRONYM_MAP.get(token);
+    
+    // Combine: "api" -> "rest interface" (acronym word + synonym)
+    if (acronymExpansion && synonyms.length > 0) {
+      const combined = `${synonyms[0]} ${acronymExpansion.split(' ')[0]}`;
+      if (!seen.has(combined) && expansions.length < opts.maxExpansions) {
+        seen.add(combined);
+        expansions.push({
+          query: combined,
+          type: 'combined',
+          weight: 0.6,
+          source: 'combined expansion'
+        });
+      }
+    }
+  }
+  
+  return expansions.slice(0, opts.maxExpansions);
+};
+
+/**
+ * Get all synonyms for a term
+ */
+export const getSynonyms = (term: string): string[] => {
+  const normalized = term.toLowerCase().trim();
+  return SYNONYM_MAP.get(normalized) || [];
+};
+
+/**
+ * Expand an acronym to its full form
+ */
+export const expandAcronym = (acronym: string): string | undefined => {
+  return ACRONYM_MAP.get(acronym.toLowerCase().trim());
+};
+
+/**
+ * Add custom synonyms (useful for domain-specific terms)
+ */
+export const addSynonyms = (term: string, synonyms: string[]): void => {
+  const normalized = term.toLowerCase().trim();
+  const existing = SYNONYM_MAP.get(normalized) || [];
+  SYNONYM_MAP.set(normalized, [...new Set([...existing, ...synonyms])]);
+};
+
+/**
+ * Add custom acronym (useful for domain-specific abbreviations)
+ */
+export const addAcronym = (acronym: string, expansion: string): void => {
+  ACRONYM_MAP.set(acronym.toLowerCase().trim(), expansion.toLowerCase().trim());
+};
+
 // Note: BM25, reciprocalRankFusion, fuseWithRRF, mmrRerank, diversityFilter, 
-// enhancedHybridSearch are exported at their declarations above.
-// cosineSimilarity is a private function used internally.
+// enhancedHybridSearch, expandQuery, getSynonyms, expandAcronym, addSynonyms, 
+// addAcronym are exported at their declarations above.
