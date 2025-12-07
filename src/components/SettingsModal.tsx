@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle } from 'lucide-react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle, Brain } from 'lucide-react';
 import { Button } from './Button';
 import type { ModelParams } from '../types';
 import { formatBytes, getApiUrl } from '../utils/helpers';
@@ -22,6 +22,10 @@ interface SettingsModalProps {
   onRefreshStorage: () => void;
   toolsEnabled: boolean;
   onToolsEnabledChange: (enabled: boolean) => void;
+  // Thinking mode (extended reasoning)
+  thinkingEnabled: boolean;
+  thinkingSupported: boolean;
+  onThinkingEnabledChange: (enabled: boolean) => void;
 }
 
 const defaultParams: ModelParams = {
@@ -53,7 +57,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClearChats,
   onRefreshStorage,
   toolsEnabled,
-  onToolsEnabledChange
+  onToolsEnabledChange,
+  thinkingEnabled,
+  thinkingSupported,
+  onThinkingEnabledChange
 }) => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -284,6 +291,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className={`transition-colors ${toolsEnabled ? 'text-emerald-400' : 'text-theme-text-muted'}`}
                 >
                   {toolsEnabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                </button>
+              </div>
+
+              {/* Thinking Mode Toggle */}
+              <div className={`flex items-center justify-between p-3 rounded-lg border ${
+                thinkingSupported 
+                  ? 'bg-theme-bg-primary border-theme-border-primary' 
+                  : 'bg-theme-bg-primary/50 border-theme-border-primary/50 opacity-60'
+              }`}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Brain size={14} className="text-purple-400" />
+                    <span className="text-sm font-medium text-theme-text-primary">Extended Thinking</span>
+                    {!thinkingSupported && (
+                      <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded">Model doesn't support</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-theme-text-muted mt-0.5">
+                    {thinkingSupported 
+                      ? 'Show model\'s reasoning process in a collapsible block'
+                      : 'Switch to a model like qwen3 that supports thinking'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => thinkingSupported && onThinkingEnabledChange(!thinkingEnabled)}
+                  className={`transition-colors ${
+                    !thinkingSupported 
+                      ? 'text-theme-text-muted/50 cursor-not-allowed' 
+                      : thinkingEnabled 
+                        ? 'text-purple-400' 
+                        : 'text-theme-text-muted'
+                  }`}
+                  disabled={!thinkingSupported}
+                >
+                  {thinkingEnabled && thinkingSupported ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
                 </button>
               </div>
               

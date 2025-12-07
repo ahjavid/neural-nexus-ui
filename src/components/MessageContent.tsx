@@ -58,19 +58,19 @@ export const MessageContent: React.FC<MessageContentProps> = ({ content }) => {
     <div className="space-y-2 leading-relaxed break-words w-full text-[15px]">
       {/* Reasoning Block */}
       {reasoning && (
-        <div className="mb-4 border border-purple-500/30 rounded-lg overflow-hidden bg-purple-950/20">
+        <div className="mb-4 border border-slate-600/40 dark:border-slate-500/30 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800/50">
           <button 
             onClick={() => setReasoningOpen(!reasoningOpen)} 
-            className="w-full flex items-center gap-2 px-4 py-2.5 bg-purple-900/20 hover:bg-purple-900/30 text-xs font-bold text-purple-300 uppercase tracking-wider transition-colors"
+            className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-200/80 dark:bg-slate-700/50 hover:bg-slate-300/80 dark:hover:bg-slate-700/70 text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider transition-colors"
           >
-            <Brain size={14} className="text-purple-400" /> 
+            <Brain size={14} className="text-indigo-600 dark:text-indigo-400" /> 
             Thinking Process 
-            <span className="ml-auto text-[10px] opacity-70 font-normal normal-case">
+            <span className="ml-auto text-[10px] opacity-70 font-normal normal-case text-slate-500 dark:text-slate-400">
               {reasoningOpen ? '▼ Hide' : '▶ Show'}
             </span>
           </button>
           {reasoningOpen && (
-            <div className="p-4 text-sm text-theme-text-secondary font-mono bg-black/10 border-t border-purple-500/20 whitespace-pre-wrap leading-relaxed">
+            <div className="p-4 text-sm text-slate-700 dark:text-slate-300 font-mono bg-white/50 dark:bg-black/20 border-t border-slate-300/50 dark:border-slate-600/30 whitespace-pre-wrap leading-relaxed">
               {reasoning}
             </div>
           )}

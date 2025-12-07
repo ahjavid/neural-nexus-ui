@@ -138,6 +138,7 @@ export default function App() {
   const [executingTools, setExecutingTools] = useState(false);
   const [modelCapabilities, setModelCapabilities] = useState<string[]>([]);
   const [capabilitiesChecked, setCapabilitiesChecked] = useState(false);
+  const [thinkingEnabled, setThinkingEnabled] = useState(false); // Extended thinking mode
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [pullProgress, setPullProgress] = useState<{
     status: string;
@@ -419,6 +420,14 @@ export default function App() {
         const caps = Array.isArray(data.capabilities) ? data.capabilities : [];
         console.log(`Model ${modelName} capabilities:`, caps);
         setModelCapabilities(caps);
+        
+        // Auto-enable thinking mode if model supports it and user hasn't disabled it
+        const savedThinkingPref = localStorage.getItem('nexus_thinking_enabled');
+        if (caps.includes('thinking') && savedThinkingPref !== 'false') {
+          setThinkingEnabled(true);
+        } else if (!caps.includes('thinking')) {
+          setThinkingEnabled(false);
+        }
       } else {
         console.warn(`Failed to get capabilities for ${modelName}: HTTP ${response.status}`);
         setModelCapabilities([]);
@@ -725,85 +734,18 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  // Helper: Execute a chat request with optional tools
-  const executeChat = async (
+  // Helper: Stream a chat response with optional tools and thinking support
+  // Based on Ollama's streaming tool call pattern - handles thinking, content, and tool_calls in one stream
+  // Returns tool calls if any were made, otherwise returns the final content
+  const streamChatWithTools = async (
     chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
     tools: ToolDefinition[] | undefined,
-    signal: AbortSignal,
-    estimatedResponseTokens: number = 0
-  ): Promise<{ content: string; tool_calls?: ToolCall[]; done: boolean }> => {
-    // Calculate dynamic repeat penalty based on conversation length and expected output
-    const conversationTurns = Math.floor(chatMessages.filter(m => m.role === 'user').length);
-    const repeatConfig = getPersonaRepeatConfig(persona, params.repeat_penalty);
-    const dynamicRepeatPenalty = calculateDynamicRepeatPenalty(
-      estimatedResponseTokens,
-      conversationTurns,
-      repeatConfig
-    );
-
-    // Log dynamic penalty for debugging
-    if (dynamicRepeatPenalty !== params.repeat_penalty) {
-      console.log('[Dynamic Repeat Penalty]', {
-        base: params.repeat_penalty,
-        dynamic: dynamicRepeatPenalty.toFixed(3),
-        conversationTurns,
-        persona
-      });
-    }
-
-    const options = {
-      temperature: params.temperature,
-      top_k: params.top_k,
-      top_p: params.top_p,
-      repeat_penalty: dynamicRepeatPenalty,
-      num_predict: params.num_predict,
-      num_ctx: params.num_ctx,
-      ...(params.seed !== -1 && { seed: params.seed }),
-      ...(params.mirostat > 0 && {
-        mirostat: params.mirostat,
-        mirostat_tau: params.mirostat_tau,
-        mirostat_eta: params.mirostat_eta
-      }),
-      ...(params.num_gpu !== -1 && { num_gpu: params.num_gpu }),
-      ...(params.num_thread > 0 && { num_thread: params.num_thread })
-    };
-
-    const response = await fetch(getApiUrl(endpoint, '/api/chat'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: selectedModel,
-        messages: chatMessages,
-        stream: false, // Non-streaming for tool calls
-        options,
-        ...(tools && tools.length > 0 && { tools })
-      }),
-      signal
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const json = await response.json();
-    return {
-      content: json.message?.content || '',
-      tool_calls: json.message?.tool_calls,
-      done: json.done ?? true
-    };
-  };
-
-  // Helper: Stream a chat response (no tools, for final response)
-  // Uses dynamic repeat penalty that increases as output grows to prevent loops
-  const streamChat = async (
-    chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
     startTime: number,
     updatedMessages: Message[],
     isVoice: boolean,
     contentPrefix = ''
-  ) => {
+  ): Promise<{ content: string; thinking: string; tool_calls: ToolCall[] }> => {
     // Calculate dynamic repeat penalty based on conversation length
-    // For streaming, we start with base and let it naturally increase if needed
     const conversationTurns = Math.floor(chatMessages.filter(m => m.role === 'user').length);
     const repeatConfig = getPersonaRepeatConfig(persona, params.repeat_penalty);
     const dynamicRepeatPenalty = calculateDynamicRepeatPenalty(
@@ -813,12 +755,18 @@ export default function App() {
     );
 
     // Log dynamic penalty for debugging
-    console.log('[Dynamic Repeat Penalty - Stream]', {
+    console.log('[Dynamic Repeat Penalty - StreamWithTools]', {
       base: params.repeat_penalty,
       dynamic: dynamicRepeatPenalty.toFixed(3),
       conversationTurns,
       persona
     });
+
+    // Log thinking mode status
+    const thinkingActive = thinkingEnabled && modelCapabilities.includes('thinking');
+    if (thinkingActive) {
+      console.log('[Thinking Mode] Extended reasoning enabled for this request');
+    }
 
     const options = {
       temperature: params.temperature,
@@ -843,8 +791,12 @@ export default function App() {
       body: JSON.stringify({
         model: selectedModel,
         messages: chatMessages,
-        stream: true,
-        options
+        stream: true, // Stream with tools support
+        options,
+        // Enable extended thinking if model supports it and user has it enabled
+        ...(thinkingEnabled && modelCapabilities.includes('thinking') && { think: true }),
+        // Include tools if provided
+        ...(tools && tools.length > 0 && { tools })
       }),
       signal: abortControllerRef.current?.signal
     });
@@ -853,24 +805,67 @@ export default function App() {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
+    // Initialize message display
     updateCurrentSession({
-      messages: [...updatedMessages, { role: 'assistant', content: contentPrefix, timing: '0', tokenSpeed: '0' }]
+      messages: [...updatedMessages, { role: 'assistant', content: contentPrefix || '...', timing: '0', tokenSpeed: '0' }]
     });
 
     let tokens = 0;
+    let thinkingTokens = 0;
     let finalContent = contentPrefix;
+    let thinkingContent = '';
+    let toolCalls: ToolCall[] = [];
+    let startedContent = false;
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       const chunk = decoder.decode(value, { stream: true });
       const lines = chunk.split('\n');
+      
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
           const json = JSON.parse(line);
-          if (json.message && json.message.content) {
+          
+          // Handle thinking tokens (stream in real-time)
+          if (json.message?.thinking) {
+            thinkingContent += json.message.thinking;
+            thinkingTokens++;
+            const elapsed = (Date.now() - startTime) / 1000;
+            
+            // Show thinking in real-time
+            if (!startedContent) {
+              const displayContent = `<think>\n${thinkingContent}</think>`;
+              
+              setSessions(prev => prev.map(s => {
+                if (s.id === currentSessionId) {
+                  const newMsgs = s.messages.slice(0, -1);
+                  const newAssistantMsg: Message = {
+                    role: 'assistant',
+                    content: displayContent,
+                    timing: elapsed.toFixed(1),
+                    tokenSpeed: (thinkingTokens / elapsed).toFixed(1)
+                  };
+                  return { ...s, messages: [...newMsgs, newAssistantMsg] };
+                }
+                return s;
+              }));
+            }
+          }
+          
+          // Handle content tokens (stream in real-time)
+          if (json.message?.content) {
             tokens++;
+            
+            // First content token - finalize thinking block
+            if (!startedContent) {
+              startedContent = true;
+              if (thinkingContent) {
+                finalContent = contentPrefix + `<think>\n${thinkingContent}\n</think>\n\n`;
+              }
+            }
+            
             finalContent += json.message.content;
             const elapsed = (Date.now() - startTime) / 1000;
 
@@ -881,23 +876,39 @@ export default function App() {
                   role: 'assistant',
                   content: finalContent,
                   timing: elapsed.toFixed(1),
-                  tokenSpeed: (tokens / elapsed).toFixed(1)
+                  tokenSpeed: ((tokens + thinkingTokens) / elapsed).toFixed(1)
                 };
                 return { ...s, messages: [...newMsgs, newAssistantMsg] };
               }
               return s;
             }));
           }
+          
+          // Handle tool calls (accumulate from stream)
+          if (json.message?.tool_calls?.length) {
+            toolCalls.push(...json.message.tool_calls);
+            console.log('[Tool Calls Detected]', json.message.tool_calls);
+          }
+          
           if (json.done) {
-            setStreaming(false);
-            abortControllerRef.current = null;
-            lastAssistantResponseRef.current = finalContent;
-            if (isVoice) speakMessage(finalContent);
+            // Handle edge case: only thinking, no content
+            if (thinkingContent && !startedContent && !toolCalls.length) {
+              finalContent = contentPrefix + `<think>\n${thinkingContent}\n</think>`;
+            }
+            
+            // If we got tool calls, don't finalize yet - we'll continue the loop
+            if (toolCalls.length === 0) {
+              setStreaming(false);
+              abortControllerRef.current = null;
+              lastAssistantResponseRef.current = finalContent;
+              if (isVoice) speakMessage(finalContent);
+            }
           }
         } catch (e) { /* ignore parse errors */ }
       }
     }
-    return finalContent;
+    
+    return { content: finalContent, thinking: thinkingContent, tool_calls: toolCalls };
   };
 
   const handleSend = async (overrideInput: string | null = null, isVoice = false) => {
@@ -1026,11 +1037,12 @@ export default function App() {
       // If tools are enabled but model confirmed NOT to support them, show notice
       if (toolsEnabled && capabilitiesChecked && !modelSupportsTools && toolRegistry.getToolDefinitions().length > 0) {
         const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
-        await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
+        await streamChatWithTools(chatMessages, [], startTime, updatedMessages, isVoice, toolNotice);
         return;
       }
 
-      // If tools are enabled and model supports them, use tool calling flow
+      // If tools are enabled and model supports them, use streaming with tools
+      // This handles thinking, content, and tool calls all in one streamed response
       if (tools.length > 0) {
         let maxIterations = 5; // Prevent infinite loops
         let iteration = 0;
@@ -1039,15 +1051,23 @@ export default function App() {
         while (iteration < maxIterations && toolsSupported) {
           iteration++;
           
-          // Show indicator when checking for tool calls (iteration > 1 means we're processing tool results)
+          // Show indicator when processing tool results (iteration > 1)
           if (iteration > 1) {
             setExecutingTools(true);
           }
           
           try {
-            const result = await executeChat(chatMessages, tools, abortControllerRef.current!.signal);
+            // Use streaming with tools - handles thinking, content, and tool_calls together
+            const result = await streamChatWithTools(
+              chatMessages, 
+              tools, 
+              startTime, 
+              updatedMessages, 
+              isVoice,
+              iteration > 1 ? '' : '' // No prefix needed
+            );
             
-            // Check if model wants to use tools (either via tool_calls or JSON in content)
+            // Check if model wants to use tools
             let toolCalls = result.tool_calls || [];
             
             // Some models output tool calls as JSON in content instead of using tool_calls
@@ -1074,15 +1094,15 @@ export default function App() {
             if (toolCalls.length > 0) {
               setExecutingTools(true);
               
-              // Add assistant message with tool calls to chat history
+              // Add assistant message with thinking, content, and tool calls to chat history
               chatMessages.push({
                 role: 'assistant',
                 content: result.content || '',
+                // Note: thinking is included in content as <think> block already
                 tool_calls: toolCalls
               });
               
               // Inject conversation context for RAG search query rewriting
-              // This allows rag_search to resolve pronouns like "it", "the document", etc.
               const contextForTools = chatMessages
                 .filter(m => m.role === 'user' || m.role === 'assistant')
                 .slice(-6)
@@ -1104,26 +1124,9 @@ export default function App() {
               // Keep executingTools true - we'll loop and continue
               // Continue loop to get next response
             } else {
-              // No tool calls, we have the final response
+              // No tool calls - streamChatWithTools already updated the UI with the final response
+              // (including thinking content displayed in real-time)
               setExecutingTools(false);
-              
-              // Update with the final content
-              const elapsed = (Date.now() - startTime) / 1000;
-              const finalMsg: Message = {
-                role: 'assistant',
-                content: result.content,
-                timing: elapsed.toFixed(1),
-                tokenSpeed: '—' // Non-streaming doesn't give token count
-              };
-              
-              updateCurrentSession({
-                messages: [...updatedMessages, finalMsg]
-              });
-              
-              setStreaming(false);
-              abortControllerRef.current = null;
-              lastAssistantResponseRef.current = result.content;
-              if (isVoice) speakMessage(result.content);
               break;
             }
           } catch (toolErr) {
@@ -1141,7 +1144,7 @@ export default function App() {
           }
         }
         
-        // If tools weren't supported (runtime error), fall back to streaming with a notice
+        // If tools weren't supported (runtime error), fall back to streaming without tools
         if (!toolsSupported) {
           // Reset chat messages (remove any tool-related messages)
           chatMessages = [
@@ -1149,13 +1152,14 @@ export default function App() {
             ...updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images }))
           ];
           
-          // Stream the response with a notice about tool limitation
+          // Stream the response without tools
           const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
-          await streamChat(chatMessages, startTime, updatedMessages, isVoice, toolNotice);
+          await streamChatWithTools(chatMessages, [], startTime, updatedMessages, isVoice, toolNotice);
         }
       } else {
-        // No tools, use streaming as before
-        await streamChat(chatMessages, startTime, updatedMessages, isVoice);
+        // No tools enabled, use streamChatWithTools with empty tools array
+        // (handles thinking mode + streaming in unified manner)
+        await streamChatWithTools(chatMessages, [], startTime, updatedMessages, isVoice);
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
@@ -1432,6 +1436,12 @@ export default function App() {
           onToolsEnabledChange={(enabled) => {
             setToolsEnabled(enabled);
             localStorage.setItem('nexus_tools_global_enabled', JSON.stringify(enabled));
+          }}
+          thinkingEnabled={thinkingEnabled}
+          thinkingSupported={modelCapabilities.includes('thinking')}
+          onThinkingEnabledChange={(enabled) => {
+            setThinkingEnabled(enabled);
+            localStorage.setItem('nexus_thinking_enabled', JSON.stringify(enabled));
           }}
         />
 
