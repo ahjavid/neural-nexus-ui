@@ -10,6 +10,7 @@
 
 import type { ToolDefinition, ToolHandler, RegisteredTool, ToolCall } from '../types';
 import { getApiUrl } from './helpers';
+import { dbManager } from './storage';
 import {
   extractEntities,
   createKnowledgeGraph,
@@ -446,6 +447,89 @@ interface EmbeddingCache {
 
 let embeddingCache: EmbeddingCache | null = null;
 
+// ============================================
+// Embedding Cache Persistence (IndexedDB)
+// ============================================
+
+interface PersistedEmbeddingCache {
+  key: string; // Required for IndexedDB keyPath
+  entries: Array<{ id: string; content: string; embedding: number[] }>;
+  nodeEmbeddings: Array<[string, number[]]>;
+  model: string;
+  kbHash: string;
+  lastUpdated: number;
+}
+
+/**
+ * Save embedding cache to IndexedDB for persistence across page reloads
+ */
+const saveEmbeddingCacheToDb = async (cache: EmbeddingCache & { kbHash?: string }): Promise<void> => {
+  if (!cache.kbHash) return;
+  
+  try {
+    const persistedCache: PersistedEmbeddingCache = {
+      key: 'embedding_cache',
+      entries: Array.from(cache.entries.values()),
+      nodeEmbeddings: cache.nodeEmbeddings ? Array.from(cache.nodeEmbeddings.entries()) : [],
+      model: cache.model,
+      kbHash: cache.kbHash,
+      lastUpdated: cache.lastUpdated
+    };
+    
+    await dbManager.put('embeddings', persistedCache);
+    console.log('[Embedding Cache] Saved to IndexedDB:', persistedCache.entries.length, 'embeddings');
+  } catch (e) {
+    console.error('[Embedding Cache] Failed to save to IndexedDB:', e);
+  }
+};
+
+/**
+ * Load embedding cache from IndexedDB
+ */
+const loadEmbeddingCacheFromDb = async (): Promise<(EmbeddingCache & { kbHash?: string }) | null> => {
+  try {
+    const persisted = await dbManager.get<PersistedEmbeddingCache>('embeddings', 'embedding_cache');
+    
+    if (!persisted) {
+      console.log('[Embedding Cache] No cached embeddings in IndexedDB');
+      return null;
+    }
+    
+    // Reconstruct Maps from arrays
+    const entries = new Map<string, { id: string; content: string; embedding: number[] }>();
+    for (const entry of persisted.entries) {
+      entries.set(entry.id, entry);
+    }
+    
+    const nodeEmbeddings = new Map<string, number[]>(persisted.nodeEmbeddings);
+    
+    console.log('[Embedding Cache] Loaded from IndexedDB:', entries.size, 'embeddings');
+    
+    return {
+      entries,
+      nodeEmbeddings,
+      model: persisted.model,
+      kbHash: persisted.kbHash,
+      lastUpdated: persisted.lastUpdated
+    };
+  } catch (e) {
+    console.error('[Embedding Cache] Failed to load from IndexedDB:', e);
+    return null;
+  }
+};
+
+/**
+ * Clear persisted embedding cache from IndexedDB
+ */
+const clearPersistedEmbeddingCache = async (): Promise<void> => {
+  try {
+    await dbManager.delete('embeddings', 'embedding_cache');
+    console.log('[Embedding Cache] Cleared from IndexedDB');
+  } catch (e) {
+    console.error('[Embedding Cache] Failed to clear from IndexedDB:', e);
+  }
+};
+
 // Store for extracted entities from recent searches (for explainability)
 let lastSearchExplanation: {
   query: string;
@@ -503,6 +587,7 @@ const getEmbedding = async (text: string, model: string, endpoint: string): Prom
 /**
  * Load and embed knowledge base entries with neurosymbolic enhancements
  * Builds both embeddings and knowledge graph
+ * Now with IndexedDB persistence for instant reload!
  */
 const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => {
   const config = getToolConfig();
@@ -534,12 +619,33 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
   // Generate a hash of the knowledge base for cache invalidation
   const kbHash = entries.map(e => `${e.id}:${e.content.length}`).join('|');
   
-  // Check if cache is still valid
+  // Check if in-memory cache is still valid
   if (
     embeddingCache &&
     embeddingCache.model === config.embeddingModel &&
     (embeddingCache as EmbeddingCache & { kbHash?: string }).kbHash === kbHash
   ) {
+    return embeddingCache;
+  }
+  
+  // Try to load from IndexedDB (persisted cache)
+  const persistedCache = await loadEmbeddingCacheFromDb();
+  if (
+    persistedCache &&
+    persistedCache.model === config.embeddingModel &&
+    persistedCache.kbHash === kbHash
+  ) {
+    console.log('[Neurosymbolic RAG] ✓ Using persisted embeddings from IndexedDB (instant!)');
+    
+    // Build knowledge graph (fast, no API calls)
+    const knowledgeGraph = createKnowledgeGraph(entries);
+    
+    // Restore full cache with knowledge graph
+    embeddingCache = {
+      ...persistedCache,
+      knowledgeGraph
+    };
+    
     return embeddingCache;
   }
   
@@ -592,6 +698,9 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
   }
   
   console.log('[Neurosymbolic RAG] Embedded', cache.entries.size, 'chunks/documents');
+  
+  // Save to IndexedDB for persistence across page reloads
+  await saveEmbeddingCacheToDb(cache);
   
   embeddingCache = cache;
   return cache;
@@ -820,9 +929,12 @@ const ragSearch: ToolHandler = async (args) => {
 
 /**
  * Clear embedding cache (call when knowledge base changes)
+ * Clears both in-memory and IndexedDB persisted cache
  */
 export const clearEmbeddingCache = (): void => {
   embeddingCache = null;
+  // Also clear persisted cache
+  clearPersistedEmbeddingCache().catch(e => console.error('Failed to clear persisted cache:', e));
 };
 
 // ============================================

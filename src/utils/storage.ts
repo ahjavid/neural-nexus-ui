@@ -2,9 +2,9 @@
 // Provides ~50MB-unlimited storage vs localStorage's 5MB limit
 
 const DB_NAME = 'neural-nexus-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
-type StoreName = 'sessions' | 'knowledge' | 'settings';
+type StoreName = 'sessions' | 'knowledge' | 'settings' | 'embeddings';
 
 interface DBManager {
   db: IDBDatabase | null;
@@ -50,6 +50,11 @@ export const dbManager: DBManager = {
         // Settings store (key-value)
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'key' });
+        }
+        
+        // Embeddings cache store (persists embedding vectors across page reloads)
+        if (!db.objectStoreNames.contains('embeddings')) {
+          db.createObjectStore('embeddings', { keyPath: 'key' });
         }
       };
     });
