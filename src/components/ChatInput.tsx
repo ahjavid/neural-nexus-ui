@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Plus,
   Mic,
@@ -57,18 +57,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onFileUpload
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea when input changes (including when cleared)
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const maxHeight = 160;
+      const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+      textarea.style.height = newHeight + 'px';
+      textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    }
+  }, [input]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSend();
     }
-  };
-
-  const handleTextareaInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-    const target = e.target as HTMLTextAreaElement;
-    target.style.height = 'auto';
-    target.style.height = target.scrollHeight + 'px';
   };
 
   const removeAttachment = (index: number) => {
@@ -202,15 +209,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </div>
 
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={isListening ? "Listening..." : "Message... (Type / for commands)"}
             disabled={!selectedModel || streaming}
-            className="w-full bg-transparent text-theme-text-primary px-2 py-2 max-h-32 min-h-[36px] resize-none outline-none border-none placeholder-theme-text-muted disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
-            style={{ boxShadow: 'none' }}
+            className="w-full bg-transparent text-theme-text-primary px-2 py-2 min-h-[40px] resize-none outline-none border-none placeholder-theme-text-muted disabled:cursor-not-allowed text-sm md:text-base scrollbar-thin"
+            style={{ boxShadow: 'none', maxHeight: '160px', overflowY: 'hidden' }}
             rows={1}
-            onInput={handleTextareaInput}
           />
           
           <div className="flex items-center gap-2">
