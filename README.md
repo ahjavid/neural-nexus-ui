@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.4-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.5-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -538,6 +538,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.5 (December 2024)
+- **Professional UI Refinements** - More compact chatbox with reduced padding and sizing
+- **Neutral Color Scheme** - Replaced purple/indigo user message bubbles with neutral theme colors
+- **Enhanced Chat History** - Added time-based grouping (Today, Yesterday, Last 7 Days, etc.) with message counts
+- **Improved Sidebar** - Cleaner session list with better visual hierarchy and spacing
 
 ### v1.1.4 (December 2024)
 - **UI Polish** - Removed purple focus outline on chat textarea for cleaner look

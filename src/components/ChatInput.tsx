@@ -92,7 +92,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="px-4 md:px-6 py-3 bg-theme-bg-primary">
+    <div className="px-4 md:px-6 py-2 bg-theme-bg-primary">
       <div className="max-w-4xl mx-auto relative">
         {/* File Error Alert */}
         {fileError && (
@@ -164,10 +164,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         )}
 
         {/* Input Container */}
-        <div className={`relative bg-theme-bg-secondary rounded-xl flex items-end p-2 border transition-colors shadow-2xl ${
+        <div className={`relative bg-theme-bg-secondary rounded-lg flex items-end p-1.5 border transition-colors shadow-lg ${
           streaming ? 'border-indigo-500/30' : 'border-theme-border-secondary hover:border-theme-border-primary'
         }`}>
-          <div className="pb-1 pl-1 flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
             <input 
               type="file" 
               ref={fileInputRef} 
@@ -179,22 +179,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <button 
               onClick={() => fileInputRef.current?.click()} 
               disabled={streaming || !selectedModel} 
-              className="p-2 text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
+              className="p-1.5 text-theme-text-muted hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
               title="Attach"
             >
-              <Plus size={20} />
+              <Plus size={18} />
             </button>
             <button 
               onClick={onToggleListening} 
               disabled={streaming || !selectedModel} 
-              className={`p-2 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+              className={`p-1.5 rounded-md transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                 isListening 
                   ? 'text-red-400 bg-red-500/10 animate-pulse' 
                   : 'text-theme-text-muted hover:text-green-400 hover:bg-green-500/10'
               }`} 
               title="Voice"
             >
-              {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+              {isListening ? <MicOff size={18} /> : <Mic size={18} />}
             </button>
           </div>
 
@@ -204,43 +204,43 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={isListening ? "Listening..." : "Message... (Type / for commands)"}
             disabled={!selectedModel || streaming}
-            className="w-full bg-transparent text-theme-text-primary p-3 max-h-40 min-h-[50px] resize-none outline-none border-none placeholder-theme-text-muted disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
+            className="w-full bg-transparent text-theme-text-primary px-2 py-2 max-h-32 min-h-[36px] resize-none outline-none border-none placeholder-theme-text-muted disabled:cursor-not-allowed text-sm md:text-base scrollbar-hide"
             style={{ boxShadow: 'none' }}
             rows={1}
             onInput={handleTextareaInput}
           />
           
-          <div className="pb-1 pr-1 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {executingTools && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/30 animate-pulse">
-                <Wrench size={14} className="text-emerald-400" />
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/30 animate-pulse">
+                <Wrench size={12} className="text-emerald-400" />
                 <span className="text-[10px] text-emerald-400 font-medium">Using tools...</span>
               </div>
             )}
             {streaming ? (
               <button 
                 onClick={onStop} 
-                className="p-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                className="p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500/50"
               >
-                <Square size={18} fill="currentColor" />
+                <Square size={16} fill="currentColor" />
               </button>
             ) : (
               <button 
                 onClick={onSend} 
                 disabled={(!input.trim() && attachments.length === 0) || !selectedModel} 
-                className={`p-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                className={`p-2 rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                   (input.trim() || attachments.length > 0) 
-                    ? 'bg-indigo-600 text-white shadow-lg' 
+                    ? 'bg-indigo-600 text-white shadow-md' 
                     : 'bg-theme-bg-tertiary text-theme-text-muted'
                 }`}
               >
-                <Send size={18} />
+                <Send size={16} />
               </button>
             )}
           </div>
         </div>
         
-        <div className="flex justify-center mt-3">
+        <div className="flex justify-center mt-2">
           <span className="text-[10px] text-theme-text-muted font-medium">
             Drag & Drop files • <kbd className="font-sans">Shift+Enter</kbd> new line
           </span>

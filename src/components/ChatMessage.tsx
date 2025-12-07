@@ -33,10 +33,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   return (
     <div className={`flex gap-4 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'} group/msg`}>
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-1 shadow-lg ${
-        isUser ? 'order-2 bg-indigo-600' : 'bg-theme-bg-secondary border border-theme-border-secondary'
+        isUser ? 'order-2 bg-theme-bg-elevated border border-theme-border-secondary' : 'bg-theme-bg-secondary border border-theme-border-secondary'
       }`}>
         {isUser ? (
-          <span className="text-xs font-bold">ME</span>
+          <span className="text-xs font-bold text-theme-text-primary">ME</span>
         ) : (
           <Terminal size={14} className="text-indigo-400" />
         )}
@@ -45,7 +45,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div className={`flex flex-col max-w-[85%] md:max-w-[75%] w-full ${isUser ? 'items-end' : 'items-start'}`}>
         <div className={`relative px-5 py-4 rounded-2xl shadow-md w-full ${
           isUser 
-            ? 'bg-indigo-600 text-white rounded-tr-sm' 
+            ? 'bg-theme-bg-elevated border border-theme-border-secondary text-theme-text-primary rounded-tr-sm' 
             : 'bg-theme-bg-secondary border border-theme-border-primary text-theme-text-primary rounded-tl-sm'
         }`}>
           {/* Attachments with Image Previews */}
