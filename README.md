@@ -549,6 +549,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Extended Thinking Support** - Added thinking mode for models that support extended reasoning (e.g., qwen3:8b)
 - **Thinking Process Display** - Collapsible "Thinking Process" block shows model's reasoning
 - **Model Capabilities Detection** - Auto-detects model features (vision, tools, thinking) via /api/show
+- **Dynamic Repetition Penalty** - Automatically adjusts repeat_penalty based on conversation length and persona to prevent loops
+- **Query Rewriting with Context** - RAG search rewrites queries using conversation context to resolve pronouns ("it", "the document", etc.)
 - **Settings Toggle** - Enable/disable extended thinking in settings panel
 
 ### v1.1.14 (December 2025)
