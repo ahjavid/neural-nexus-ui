@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Database, X, Trash2, Check, Upload, Link, FileText, Globe, File, Loader2, ChevronDown, ChevronRight, Brain, Tag, Hash } from 'lucide-react';
 import { Button } from './Button';
 import type { KnowledgeEntry } from '../types';
-import { processDocument, fetchUrlContent, chunkText } from '../utils/documents';
+import { processDocument, fetchUrlContent, autoChunk } from '../utils/documents';
 import { extractEntities, extractKeywords } from '../utils/neurosymbolic';
 
 interface KnowledgeBaseModalProps {
@@ -39,7 +39,7 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleTextSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleTextSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
@@ -47,15 +47,22 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
     const content = formData.get('content') as string;
     
     if (title && content) {
-      const chunks = chunkText(content);
-      onAddKnowledge(title, content, {
-        source: 'manual',
-        chunks,
-        createdAt: Date.now(),
-        charCount: content.length
-      });
-      form.reset();
+      setIsLoading(true);
       setError(null);
+      try {
+        // Use autoChunk for intelligent semantic chunking
+        const chunks = await autoChunk(content);
+        onAddKnowledge(title, content, {
+          source: 'manual',
+          chunks,
+          createdAt: Date.now(),
+          charCount: content.length
+        });
+        form.reset();
+      } catch (err) {
+        setError(`Failed to process text: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+      setIsLoading(false);
     }
   };
 
@@ -69,7 +76,8 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
     for (const file of Array.from(files)) {
       try {
         const result = await processDocument(file);
-        const chunks = chunkText(result.text);
+        // Use autoChunk for intelligent semantic chunking based on document type
+        const chunks = await autoChunk(result.text);
         
         onAddKnowledge(file.name, result.text, {
           source: 'file',
@@ -108,7 +116,8 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
 
     try {
       const result = await fetchUrlContent(parsedUrl.href);
-      const chunks = chunkText(result.text);
+      // Use autoChunk for intelligent semantic chunking
+      const chunks = await autoChunk(result.text);
       
       onAddKnowledge(result.title || parsedUrl.hostname, result.text, {
         source: 'url',

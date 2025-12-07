@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.12-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.13-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -538,6 +538,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.13 (December 2025)
+- **Semantic Chunking Enabled** - Knowledge Base now uses `autoChunk()` for intelligent document chunking
+- **Auto Strategy Selection** - Automatically chooses best chunking strategy: hierarchical (headings/code), entity-aware (10+ sentences), or sentence-based
+- **Removed Duplicate Code** - Cleaned up redundant `cosineSimilarity` function in tools.ts
 
 ### v1.1.12 (December 2025)
 - **Entity Density Boost** - RAG search now boosts chunks with high entity counts for data-rich queries (transactions, contacts, dates, etc.)
