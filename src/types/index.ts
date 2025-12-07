@@ -149,6 +149,7 @@ export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   description: string;
   enum?: string[];
+  items?: { type: string };  // For array types
 }
 
 export interface ToolDefinition {

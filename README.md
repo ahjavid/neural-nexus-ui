@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.16-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.17-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -14,6 +14,7 @@ A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI m
 - **🗣️ Voice Mode** - Hands-free conversation with speech recognition and text-to-speech
 - **🔧 Tool Calling** - AI can use tools for calculations, web search, RAG, and more
 - **🔍 Tavily Search** - AI-powered web search with direct answers (API key required)
+- **📄 Tavily Extract** - AI-powered content extraction from web pages (cleaner than basic fetch)
 - **📊 Knowledge Graph** - Automatic entity extraction and relation building
 - **📚 Knowledge Base** - Upload files, fetch URLs, or paste text for context
 - **🎭 Personas** - Switch between chat modes (Default, Coder, Writer, Analyst)
@@ -385,6 +386,7 @@ Neural Nexus supports Ollama's tool calling feature, allowing the AI to use tool
 | `random_number` | Generate random numbers | "Give me a random number between 1 and 100" |
 | `web_search` | Search using DuckDuckGo Instant Answers | "Define machine learning" |
 | `tavily_search` | AI-powered web search with answers | "Search for Lexus LX 2025 specs" |
+| `tavily_extract` | AI-powered content extraction from URLs | "Read this article: https://example.com/post" |
 | `rag_search` | Neurosymbolic search through Knowledge Base | "Find info about authentication in my docs" |
 | `fetch_url` | Fetch content from a specific URL | "Fetch the content from https://example.com" |
 | `encode_text` | Base64/URL encoding/decoding | "Encode this text to base64" |
@@ -399,6 +401,21 @@ For high-quality, up-to-date web search results:
 2. Open **Settings** → **Show Tools** → **Tool Configuration**
 3. Enter your Tavily API key
 4. Ask questions about current events, product specs, news, etc.
+
+### Tavily Extract (AI-Powered Content Extraction)
+
+Extract clean, structured content from web pages:
+
+- **Better than basic fetch** - Removes ads, navigation, clutter
+- **Markdown output** - Returns content in clean markdown format
+- **Batch support** - Extract from up to 20 URLs at once
+- **Depth options** - `basic` (fast) or `advanced` (higher success rate)
+
+**Example uses:**
+- "Read this article and summarize it: https://example.com/blog/post"
+- "Extract the main content from these docs pages"
+
+*Requires Tavily API key (same key as Tavily Search)*
 
 ### RAG Search (Neurosymbolic Document Search)
 
@@ -538,6 +555,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.17 (December 2025)
+- **Tavily Extract Tool** - AI-powered content extraction from web pages (cleaner than basic fetch, removes ads/navigation/clutter)
+- **Markdown Output** - Extracted content returned in clean markdown format
+- **Batch URL Support** - Extract from up to 20 URLs in a single request
+- **Extraction Depth Options** - `basic` (fast) or `advanced` (higher success rate for complex pages)
+- **Updated Documentation** - Added Tavily Extract to tools table and feature list
 
 ### v1.1.16 (December 2025)
 - **Unified Streaming with Tools + Thinking** - Single API request now handles streaming, tools, and extended thinking together

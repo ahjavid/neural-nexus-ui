@@ -430,6 +430,130 @@ const webSearch: ToolHandler = async (args) => {
 };
 
 /**
+ * Tavily Extract - Intelligent content extraction from URLs
+ * Uses Tavily's AI-powered extraction for cleaner, more structured content than basic fetch
+ */
+const tavilyExtract: ToolHandler = async (args) => {
+  const urls = args.urls as string | string[];
+  const includeImages = (args.include_images as boolean) ?? false;
+  const extractDepth = (args.extract_depth as string) || 'basic';
+  const format = (args.format as string) || 'markdown';
+  
+  if (!urls || (Array.isArray(urls) && urls.length === 0)) {
+    return 'Error: No URLs provided';
+  }
+  
+  const config = getToolConfig();
+  
+  if (!config.tavilyApiKey) {
+    return 'Error: Tavily API key is required for extract. Please configure it in Settings > API Keys.';
+  }
+  
+  // Normalize urls to array
+  const urlList = Array.isArray(urls) ? urls : [urls];
+  
+  // Validate URLs
+  for (const url of urlList) {
+    try {
+      new URL(url);
+    } catch {
+      return `Error: Invalid URL format - ${url}`;
+    }
+  }
+  
+  // Limit to 20 URLs (API limit)
+  if (urlList.length > 20) {
+    return 'Error: Maximum 20 URLs allowed per request';
+  }
+  
+  try {
+    const controller = new AbortController();
+    const timeoutMs = extractDepth === 'advanced' ? 60000 : 30000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    console.log(`[Tavily Extract] Extracting ${urlList.length} URL(s) with depth: ${extractDepth}`);
+    
+    const response = await fetch('https://api.tavily.com/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.tavilyApiKey}`
+      },
+      body: JSON.stringify({
+        urls: urlList,
+        include_images: includeImages,
+        extract_depth: extractDepth,
+        format: format
+      }),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        return 'Error: Invalid Tavily API key. Please check your key in Settings.';
+      }
+      if (response.status === 429) {
+        return 'Error: Tavily API rate limit exceeded. Please try again later.';
+      }
+      return `Error: Tavily Extract failed with HTTP ${response.status} - ${response.statusText}`;
+    }
+    
+    const data = await response.json();
+    const results: string[] = [];
+    
+    // Process successful results
+    if (data.results && Array.isArray(data.results)) {
+      for (const result of data.results) {
+        results.push(`\n## ${result.title || 'Extracted Content'}`);
+        results.push(`**URL:** ${result.url}`);
+        
+        if (result.content || result.raw_content) {
+          const content = result.content || result.raw_content;
+          // Truncate very long content
+          const truncated = content.length > 8000 
+            ? content.slice(0, 8000) + '\n\n*... (content truncated)*'
+            : content;
+          results.push(`\n${truncated}`);
+        }
+        
+        if (includeImages && result.images && result.images.length > 0) {
+          results.push(`\n**Images (${result.images.length}):**`);
+          for (const img of result.images.slice(0, 5)) {
+            results.push(`- ${img}`);
+          }
+          if (result.images.length > 5) {
+            results.push(`- ... and ${result.images.length - 5} more`);
+          }
+        }
+      }
+    }
+    
+    // Report any failures
+    if (data.failed_results && data.failed_results.length > 0) {
+      results.push('\n---\n**Failed to extract:**');
+      for (const failed of data.failed_results) {
+        results.push(`- ${failed.url}: ${failed.error || 'Unknown error'}`);
+      }
+    }
+    
+    if (results.length === 0) {
+      return 'No content could be extracted from the provided URL(s).';
+    }
+    
+    const responseTime = data.response_time ? ` (${data.response_time.toFixed(2)}s)` : '';
+    return `# Tavily Extract Results${responseTime}\n${results.join('\n')}`;
+    
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') {
+      return `Error: Extraction timed out after ${extractDepth === 'advanced' ? 60 : 30} seconds`;
+    }
+    return `Error extracting content: ${(e as Error).message}`;
+  }
+};
+
+/**
  * Get text statistics (word count, character count, etc.)
  */
 const textStats: ToolHandler = (args) => {
@@ -1202,6 +1326,39 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     }
   },
   
+  tavily_extract: {
+    type: 'function',
+    function: {
+      name: 'tavily_extract',
+      description: 'Extract clean, structured content from web pages using Tavily AI-powered extraction. Better than basic URL fetching - removes ads, navigation, and clutter to return the main content in markdown format. Ideal for: reading articles, documentation pages, blog posts, news articles. Requires Tavily API key configured in Settings.',
+      parameters: {
+        type: 'object',
+        required: ['urls'],
+        properties: {
+          urls: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'URL or list of URLs to extract content from (max 20). Can also be a single URL string.'
+          },
+          include_images: {
+            type: 'boolean',
+            description: 'Include extracted image URLs in the response. Defaults to false.'
+          },
+          extract_depth: {
+            type: 'string',
+            description: 'Extraction depth: "basic" (faster, default) or "advanced" (higher success rate, more content, but slower and uses more credits).',
+            enum: ['basic', 'advanced']
+          },
+          format: {
+            type: 'string',
+            description: 'Output format for extracted content: "markdown" (default) or "text" (plain text).',
+            enum: ['markdown', 'text']
+          }
+        }
+      }
+    }
+  },
+  
   text_stats: {
     type: 'function',
     function: {
@@ -1275,6 +1432,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   encode_text: encodeText,
   generate_uuid: generateUuid,
   web_search: webSearch,
+  tavily_extract: tavilyExtract,
   text_stats: textStats,
   rag_search: ragSearch
 };
