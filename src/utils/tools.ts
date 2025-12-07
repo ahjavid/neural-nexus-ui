@@ -15,9 +15,12 @@ import {
   extractEntities,
   createKnowledgeGraph,
   hybridSearch,
+  enhancedHybridSearch,
+  expandQuery,
   buildReasoningChain,
   formatReasoningChain,
   decomposeQuery,
+  cosineSimilarity,
   type KnowledgeGraph,
   type HybridSearchResult,
   type EntityExtractionResult
@@ -707,16 +710,21 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
 };
 
 /**
- * Neurosymbolic RAG search using hybrid approach:
+ * Neurosymbolic RAG search using enhanced hybrid approach:
  * - Neural: embedding similarity
  * - Symbolic: entity matching, keyword overlap, knowledge graph relations
+ * - BM25: sparse keyword retrieval
+ * - RRF: reciprocal rank fusion for combining signals
+ * - MMR: maximal marginal relevance for diversity
+ * - Query Expansion: synonyms and acronyms
  */
 const ragSearch: ToolHandler = async (args) => {
   const query = args.query as string;
   const topK = (args.top_k as number) || 5;
-  const threshold = (args.threshold as number) || 0.3;
+  const threshold = (args.threshold as number) || 0.1;
   const useHybrid = (args.hybrid as boolean) !== false; // Default to hybrid
   const showReasoning = (args.show_reasoning as boolean) || false;
+  const useEnhanced = (args.enhanced as boolean) !== false; // Default to enhanced
   
   if (!query) {
     return 'Error: No search query provided';
@@ -735,11 +743,20 @@ const ragSearch: ToolHandler = async (args) => {
     // Extract entities from query for explanation
     const queryEntities = extractEntities(query);
     
+    // Expand query with synonyms and acronyms for better recall
+    const expandedQueries = expandQuery(query, {
+      maxExpansions: 3,
+      includeSynonyms: true,
+      includeAcronyms: true,
+      includePartial: false
+    });
+    
     console.log('[Neurosymbolic RAG] Query analysis:', {
       entities: queryEntities.entities.length,
       keywords: queryEntities.keywords.length,
       entityTypes: queryEntities.entities.map(e => `${e.type}:${e.value}`),
-      topKeywords: queryEntities.keywords.slice(0, 5)
+      topKeywords: queryEntities.keywords.slice(0, 5),
+      expandedQueries: expandedQueries.length > 1 ? expandedQueries.map(e => e.query) : 'none'
     });
     
     // Check for query decomposition (comparison queries, etc.)
@@ -749,29 +766,125 @@ const ragSearch: ToolHandler = async (args) => {
     let results: HybridSearchResult[] = [];
     
     if (useHybrid && cache.knowledgeGraph && cache.nodeEmbeddings) {
-      // Use neurosymbolic hybrid search
-      console.log('[Neurosymbolic RAG] Using hybrid search with', 
-        queryEntities.entities.length, 'entities and',
-        queryEntities.keywords.length, 'keywords');
-      console.log('[Neurosymbolic RAG] Search weights: semantic=45%, entity=30%, keyword=15%, graph=10%');
-      
       // Get query embedding function
       const getQueryEmbedding = async (text: string) => 
         getEmbedding(text, config.embeddingModel, config.ollamaEndpoint);
       
-      if (isComplexQuery) {
-        // Handle complex queries by searching sub-queries
-        console.log('[Neurosymbolic RAG] Complex query detected, decomposing into:', subQueries);
+      if (useEnhanced) {
+        // Use ENHANCED neurosymbolic search with BM25 + RRF + MMR
+        console.log('[Neurosymbolic RAG] Using ENHANCED hybrid search (BM25 + RRF + MMR)');
         
-        const allResults: HybridSearchResult[] = [];
-        for (const subQuery of subQueries) {
-          const subResults = await hybridSearch(
-            subQuery,
+        // For complex queries, search each sub-query with enhanced search
+        if (isComplexQuery) {
+          console.log('[Neurosymbolic RAG] Complex query detected, decomposing into:', subQueries);
+          
+          const allResults: HybridSearchResult[] = [];
+          for (const subQuery of subQueries) {
+            const subResults = await enhancedHybridSearch(
+              subQuery,
+              cache.knowledgeGraph,
+              getQueryEmbedding,
+              cache.nodeEmbeddings,
+              { 
+                topK: Math.ceil(topK / subQueries.length) + 2,
+                minScore: threshold,
+                useBM25: true,
+                useRRF: true,
+                useMMR: true,
+                mmrLambda: 0.7,
+                diversityThreshold: 0.85
+              }
+            );
+            allResults.push(...subResults);
+          }
+          
+          // Deduplicate and re-rank
+          const seenIds = new Set<string>();
+          results = allResults.filter(r => {
+            if (seenIds.has(r.nodeId)) return false;
+            seenIds.add(r.nodeId);
+            return true;
+          }).sort((a, b) => b.score - a.score).slice(0, topK);
+        } else {
+          // Simple query - use enhanced search with query expansion
+          // Search with original + expanded queries and merge results
+          const allResults: HybridSearchResult[] = [];
+          
+          for (const expansion of expandedQueries) {
+            const expansionResults = await enhancedHybridSearch(
+              expansion.query,
+              cache.knowledgeGraph,
+              getQueryEmbedding,
+              cache.nodeEmbeddings,
+              { 
+                topK: topK + 2, // Get extra for merging
+                minScore: threshold,
+                useBM25: true,
+                useRRF: true,
+                useMMR: false // Will apply MMR after merging
+              }
+            );
+            
+            // Weight results by expansion weight
+            for (const r of expansionResults) {
+              r.score *= expansion.weight;
+            }
+            allResults.push(...expansionResults);
+          }
+          
+          // Deduplicate, keeping highest score
+          const resultMap = new Map<string, HybridSearchResult>();
+          for (const r of allResults) {
+            const existing = resultMap.get(r.nodeId);
+            if (!existing || r.score > existing.score) {
+              resultMap.set(r.nodeId, r);
+            }
+          }
+          
+          results = [...resultMap.values()]
+            .sort((a, b) => b.score - a.score)
+            .slice(0, topK);
+        }
+      } else {
+        // Use basic neurosymbolic hybrid search
+        console.log('[Neurosymbolic RAG] Using basic hybrid search');
+        
+        if (isComplexQuery) {
+          console.log('[Neurosymbolic RAG] Complex query detected, decomposing into:', subQueries);
+          
+          const allResults: HybridSearchResult[] = [];
+          for (const subQuery of subQueries) {
+            const subResults = await hybridSearch(
+              subQuery,
+              cache.knowledgeGraph,
+              getQueryEmbedding,
+              cache.nodeEmbeddings,
+              { 
+                topK: Math.ceil(topK / subQueries.length) + 2,
+                minScore: threshold,
+                semanticWeight: 0.45,
+                entityWeight: 0.30,
+                keywordWeight: 0.15,
+                graphWeight: 0.10
+              }
+            );
+            allResults.push(...subResults);
+          }
+          
+          const seenIds = new Set<string>();
+          results = allResults.filter(r => {
+            if (seenIds.has(r.nodeId)) return false;
+            seenIds.add(r.nodeId);
+            return true;
+          }).sort((a, b) => b.score - a.score).slice(0, topK);
+        } else {
+          results = await hybridSearch(
+            query,
             cache.knowledgeGraph,
             getQueryEmbedding,
             cache.nodeEmbeddings,
             { 
-              topK: Math.ceil(topK / subQueries.length) + 2,
+              topK: topK,
               minScore: threshold,
               semanticWeight: 0.45,
               entityWeight: 0.30,
@@ -779,32 +892,7 @@ const ragSearch: ToolHandler = async (args) => {
               graphWeight: 0.10
             }
           );
-          allResults.push(...subResults);
         }
-        
-        // Deduplicate and re-rank
-        const seenIds = new Set<string>();
-        results = allResults.filter(r => {
-          if (seenIds.has(r.nodeId)) return false;
-          seenIds.add(r.nodeId);
-          return true;
-        }).sort((a, b) => b.score - a.score).slice(0, topK);
-      } else {
-        // Simple query - direct hybrid search
-        results = await hybridSearch(
-          query,
-          cache.knowledgeGraph,
-          getQueryEmbedding,
-          cache.nodeEmbeddings,
-          { 
-            topK,
-            minScore: threshold,
-            semanticWeight: 0.45,
-            entityWeight: 0.30,
-            keywordWeight: 0.15,
-            graphWeight: 0.10
-          }
-        );
       }
     } else {
       // Fallback to pure semantic search
@@ -847,6 +935,8 @@ const ragSearch: ToolHandler = async (args) => {
       queryEntities,
       results
     };
+    
+    console.log('[Neurosymbolic RAG] Search completed:', results.length, 'results found');
     
     if (results.length === 0) {
       return `No relevant documents found for "${query}" (threshold: ${threshold}). Try:\n- Lowering the threshold\n- Using different keywords\n- Adding more relevant documents`;
@@ -1114,7 +1204,7 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     type: 'function',
     function: {
       name: 'rag_search',
-      description: 'Search through the USER\'S PERSONAL knowledge base using Neurosymbolic AI - a hybrid approach combining neural embeddings with symbolic reasoning (entity matching, keyword analysis, knowledge graph relations). ALWAYS use this tool FIRST when the user asks about: their documents, files, uploads, notes, "my documents", personal data like bank statements, receipts, invoices, or any content they have added. Supports complex queries like comparisons and temporal reasoning.',
+      description: 'Search through the USER\'S PERSONAL knowledge base using Enhanced Neurosymbolic AI - combines neural embeddings with symbolic reasoning (entity matching, keyword analysis, knowledge graph), BM25 sparse retrieval, Reciprocal Rank Fusion (RRF), and Maximal Marginal Relevance (MMR) for diverse results. Supports query expansion with synonyms. ALWAYS use this tool FIRST when the user asks about: their documents, files, uploads, notes, "my documents", personal data like bank statements, receipts, invoices, or any content they have added.',
       parameters: {
         type: 'object',
         required: ['query'],
@@ -1129,11 +1219,15 @@ const toolDefinitions: Record<string, ToolDefinition> = {
           },
           threshold: {
             type: 'number',
-            description: 'Minimum score threshold (0-1). Lower = more results. Defaults to 0.3.'
+            description: 'Minimum score threshold (0-1). Lower = more results. Defaults to 0.1.'
           },
           hybrid: {
             type: 'boolean',
             description: 'Use hybrid neurosymbolic search (true) or pure semantic search (false). Defaults to true.'
+          },
+          enhanced: {
+            type: 'boolean',
+            description: 'Use enhanced search with BM25, RRF fusion, MMR diversity, and query expansion (true) or basic hybrid search (false). Defaults to true.'
           },
           show_reasoning: {
             type: 'boolean',

@@ -256,8 +256,8 @@ export const KnowledgeBaseModal: React.FC<KnowledgeBaseModalProps> = ({
                     {k.chunks && <span>• {k.chunks.length} chunks</span>}
                   </div>
                   
-                  {/* Entity/Keyword Preview (always show if expanded) */}
-                  {(expandedId === k.id || showEntities === k.id) && (() => {
+                  {/* Entity/Keyword Preview (only show when analysis toggle is active) */}
+                  {showEntities === k.id && (() => {
                     const info = getEntityInfo(k);
                     return (
                       <div className="mt-2 space-y-2">

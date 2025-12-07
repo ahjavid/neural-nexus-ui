@@ -671,10 +671,7 @@ export const hybridSearch = async (
   const moneyGreaterThan = overMatch ? parseFloat(overMatch[1].replace(/,/g, '')) : null;
   const moneyLessThan = underMatch ? parseFloat(underMatch[1].replace(/,/g, '')) : null;
   
-  console.log('🔢 Money comparison thresholds:', { 
-    greaterThan: moneyGreaterThan, 
-    lessThan: moneyLessThan 
-  });
+  // Money comparison thresholds for filtering (no logging in production)
   
   // Get query embedding
   const queryEmbedding = await getQueryEmbedding(query);
@@ -725,6 +722,46 @@ export const hybridSearch = async (
       }
     }
     
+    // Entity density boost for data-rich queries
+    // When query asks for data listing but has no specific entities to match,
+    // boost chunks that have high entity density (any type of entities)
+    const queryLower = query.toLowerCase();
+    const isDataQuery = 
+      (queryLower.includes('list') || queryLower.includes('show') || 
+       queryLower.includes('find') || queryLower.includes('get') ||
+       queryLower.includes('all') || queryLower.includes('detail') ||
+       queryLower.includes('transaction') || queryLower.includes('payment') || 
+       queryLower.includes('contact') || queryLower.includes('email') ||
+       queryLower.includes('date') || queryLower.includes('schedule') ||
+       queryLower.includes('meeting') || queryLower.includes('event') ||
+       queryLower.includes('report') || queryLower.includes('summary')) &&
+      queryExtraction.entities.length === 0;
+    
+    if (isDataQuery) {
+      // Count all entity types for general document support
+      const entityCounts: Record<string, number> = {};
+      for (const e of node.entities) {
+        entityCounts[e.type] = (entityCounts[e.type] || 0) + 1;
+      }
+      const totalEntities = node.entities.length;
+      
+      if (totalEntities >= 2) {
+        // Boost proportional to entity density (max boost at 10+ entities)
+        const densityBoost = Math.min(1.0, totalEntities / 10) * 1.5;
+        entityScore += densityBoost;
+        
+        // Create summary of entity types found
+        const typeSummary = Object.entries(entityCounts)
+          .map(([type, count]) => `${count} ${type}`)
+          .join(', ');
+        explanation.entityMatches.push({
+          type: 'date', // Use 'date' as generic marker for density boost
+          value: `entity-dense (${typeSummary})`,
+          boost: densityBoost
+        });
+      }
+    }
+    
     // Standard entity matching for other types
     for (const qEntity of queryExtraction.entities) {
       for (const nEntity of node.entities) {
@@ -751,8 +788,8 @@ export const hybridSearch = async (
       }
     }
     
-    // Normalize entity score - use max of query entities or 1 for comparison queries
-    const normalizer = Math.max(queryExtraction.entities.length, 
+    // Normalize entity score
+    const normalizer = isDataQuery ? 1 : Math.max(queryExtraction.entities.length, 
       (moneyGreaterThan !== null || moneyLessThan !== null) ? 1 : 0);
     if (normalizer > 0) {
       entityScore = Math.min(1, entityScore / normalizer);
@@ -1209,6 +1246,8 @@ export interface RankedItem {
  * making it less sensitive to score distribution differences between ranking methods.
  * 
  * Formula: RRF(d) = Σ (1 / (k + rank_i(d))) for each ranking list i
+ * 
+ * Scores are normalized to 0-1 range for compatibility with threshold filtering.
  */
 export const reciprocalRankFusion = <T extends RankedItem>(
   rankingLists: T[][],
@@ -1234,10 +1273,29 @@ export const reciprocalRankFusion = <T extends RankedItem>(
     }
   }
 
-  // Convert to array, sort by RRF score, and update item scores
+  // Convert to array, sort by RRF score
   const results = Array.from(rrfScores.values())
     .map(({ item, score }) => ({ ...item, score }))
     .sort((a, b) => b.score - a.score);
+
+  // Normalize scores to 0-1 range for threshold compatibility
+  if (results.length > 0) {
+    const maxScore = results[0].score;
+    const minScore = results[results.length - 1].score;
+    const range = maxScore - minScore;
+    
+    if (range > 0) {
+      // Normalize to 0.2-1.0 range (so even lowest still passes typical thresholds)
+      for (const result of results) {
+        result.score = 0.2 + 0.8 * ((result.score - minScore) / range);
+      }
+    } else {
+      // All same score, set to 0.5
+      for (const result of results) {
+        result.score = 0.5;
+      }
+    }
+  }
 
   return results;
 };
@@ -1560,6 +1618,46 @@ export const enhancedHybridSearch = async (
       }
     }
 
+    // Entity density boost for data-rich queries
+    // When query asks for data listing but has no specific entities to match,
+    // boost chunks that have high entity density (any type of entities)
+    const queryLower = query.toLowerCase();
+    const isDataQuery = 
+      (queryLower.includes('list') || queryLower.includes('show') || 
+       queryLower.includes('find') || queryLower.includes('get') ||
+       queryLower.includes('all') || queryLower.includes('detail') ||
+       queryLower.includes('transaction') || queryLower.includes('payment') || 
+       queryLower.includes('contact') || queryLower.includes('email') ||
+       queryLower.includes('date') || queryLower.includes('schedule') ||
+       queryLower.includes('meeting') || queryLower.includes('event') ||
+       queryLower.includes('report') || queryLower.includes('summary')) &&
+      queryExtraction.entities.length === 0; // Query has no specific entities
+    
+    if (isDataQuery) {
+      // Count all entity types for general document support
+      const entityCounts: Record<string, number> = {};
+      for (const e of node.entities) {
+        entityCounts[e.type] = (entityCounts[e.type] || 0) + 1;
+      }
+      const totalEntities = node.entities.length;
+      
+      if (totalEntities >= 2) { // At least 2 entities of any type
+        // Boost proportional to entity density (max boost at 10+ entities)
+        const densityBoost = Math.min(1.0, totalEntities / 10) * 1.5;
+        entityScore += densityBoost;
+        
+        // Create summary of entity types found
+        const typeSummary = Object.entries(entityCounts)
+          .map(([type, count]) => `${count} ${type}`)
+          .join(', ');
+        entityMatches.push({ 
+          type: 'date', // Use 'date' as generic marker for density boost 
+          value: `entity-dense (${typeSummary})`, 
+          boost: densityBoost 
+        });
+      }
+    }
+
     // Standard entity matching
     for (const qEntity of queryExtraction.entities) {
       for (const nEntity of node.entities) {
@@ -1579,7 +1677,8 @@ export const enhancedHybridSearch = async (
     }
 
     if (entityScore > 0) {
-      const normalizer = Math.max(queryExtraction.entities.length, (moneyGreaterThan !== null || moneyLessThan !== null) ? 1 : 0);
+      // For data queries, normalize by a fixed value since we're measuring density, not matching
+      const normalizer = isDataQuery ? 1 : Math.max(queryExtraction.entities.length, (moneyGreaterThan !== null || moneyLessThan !== null) ? 1 : 0);
       entityRanking.push({ id: nodeId, score: Math.min(1, entityScore / (normalizer || 1)), node });
     }
 
@@ -1777,7 +1876,7 @@ export const enhancedHybridSearch = async (
       });
     }
   }
-
+  
   return finalResults;
 };
 
@@ -1818,10 +1917,20 @@ const SYNONYM_MAP: Map<string, string[]> = new Map([
   ['pdf', ['document', 'file', 'report', 'paper']],
   
   // Financial terms
-  ['payment', ['transaction', 'purchase', 'charge', 'fee', 'cost']],
+  ['payment', ['transaction', 'purchase', 'charge', 'fee', 'cost', 'debit']],
   ['invoice', ['bill', 'receipt', 'statement', 'charge']],
   ['expense', ['cost', 'spending', 'expenditure', 'payment', 'charge']],
   ['revenue', ['income', 'earnings', 'sales', 'profit']],
+  ['transaction', ['payment', 'purchase', 'charge', 'transfer', 'debit', 'credit', 'activity']],
+  ['credit', ['card', 'balance', 'limit', 'payment', 'statement']],
+  ['statement', ['bill', 'summary', 'account', 'balance', 'transactions']],
+  ['balance', ['amount', 'total', 'due', 'owed', 'outstanding']],
+  ['purchase', ['buy', 'transaction', 'charge', 'payment', 'merchant']],
+  ['merchant', ['store', 'vendor', 'retailer', 'seller', 'business']],
+  ['amount', ['total', 'sum', 'price', 'cost', 'balance', 'charge']],
+  ['charge', ['fee', 'cost', 'payment', 'transaction', 'purchase', 'debit']],
+  ['fee', ['charge', 'cost', 'interest', 'penalty']],
+  ['interest', ['apr', 'rate', 'finance charge', 'fee']],
   
   // Time-related
   ['recent', ['latest', 'new', 'current', 'last', 'today']],
