@@ -34,6 +34,14 @@ import {
   getAdaptiveTemperature
 } from './utils/helpers';
 import { toolRegistry, clearEmbeddingCache, setConversationContext, getToolConfigValue } from './utils/tools';
+import {
+  setGroqEnabled,
+  hasGroqApiKey,
+  listGroqModels,
+  streamGroqChat,
+  convertToGroqMessages,
+  getGroqModelInfo
+} from './utils/groq';
 
 // Types
 import type {
@@ -47,7 +55,9 @@ import type {
   ConnectionStatus,
   StorageInfo,
   ToolCall,
-  ToolDefinition
+  ToolDefinition,
+  ApiProvider,
+  UnifiedModel
 } from './types';
 
 // PDF.js setup
@@ -142,6 +152,15 @@ export default function App() {
   const [capabilitiesChecked, setCapabilitiesChecked] = useState(false);
   const [thinkingEnabled, setThinkingEnabled] = useState(false); // Extended thinking mode
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  
+  // State: API Provider (Ollama or Groq)
+  const [apiProvider, setApiProvider] = useState<ApiProvider>(() => {
+    const saved = localStorage.getItem('nexus_api_provider');
+    return (saved as ApiProvider) || 'ollama';
+  });
+  const [groqModels, setGroqModels] = useState<UnifiedModel[]>([]);
+  const [groqConnectionStatus, setGroqConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  
   const [pullProgress, setPullProgress] = useState<{
     status: string;
     completed?: number;
@@ -360,7 +379,7 @@ export default function App() {
       if (!res.ok) throw new Error('Failed to connect');
       const data = await res.json();
       setModels(data.models || []);
-      if (data.models.length > 0 && !selectedModel) {
+      if (data.models.length > 0 && !selectedModel && apiProvider === 'ollama') {
         updateCurrentSession({ model: data.models[0].name });
       }
       setConnectionStatus('connected');
@@ -370,18 +389,75 @@ export default function App() {
     }
   };
 
+  const checkGroqConnection = async () => {
+    if (!hasGroqApiKey()) {
+      setGroqConnectionStatus('disconnected');
+      setGroqModels([]);
+      return;
+    }
+    
+    setGroqConnectionStatus('checking');
+    try {
+      const models = await listGroqModels();
+      setGroqModels(models);
+      if (models.length > 0) {
+        setGroqConnectionStatus('connected');
+        // If Groq is selected provider and no model selected, select first Groq model
+        if (apiProvider === 'groq' && !selectedModel) {
+          updateCurrentSession({ model: models[0].id });
+        }
+      } else {
+        setGroqConnectionStatus('error');
+      }
+    } catch (err) {
+      console.error('Groq connection error:', err);
+      setGroqConnectionStatus('error');
+    }
+  };
+
+  // Check Groq connection when API key changes or on mount
+  useEffect(() => {
+    if (hasGroqApiKey()) {
+      checkGroqConnection();
+    }
+  }, []);
+
   const createNewChat = useCallback(() => {
     const newSession: Session = {
       id: Date.now(),
       title: 'New Chat',
       messages: [],
-      model: models.length > 0 ? models[0].name : '',
+      model: apiProvider === 'groq' && groqModels.length > 0 
+        ? groqModels[0].id 
+        : models.length > 0 ? models[0].name : '',
       date: Date.now()
     };
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     if (window.innerWidth < 1024) setSidebarOpen(false);
-  }, [models]);
+  }, [models, apiProvider, groqModels]);
+
+  // Handle API provider switch
+  const switchApiProvider = useCallback((provider: ApiProvider) => {
+    setApiProvider(provider);
+    localStorage.setItem('nexus_api_provider', provider);
+    setGroqEnabled(provider === 'groq');
+    
+    // Switch to first available model for the new provider
+    if (provider === 'groq' && groqModels.length > 0) {
+      updateCurrentSession({ model: groqModels[0].id });
+    } else if (provider === 'ollama' && models.length > 0) {
+      updateCurrentSession({ model: models[0].name });
+    }
+  }, [groqModels, models]);
+
+  // Get current available models based on provider
+  const availableModels = apiProvider === 'groq' 
+    ? groqModels.map(m => ({ name: m.id, size: m.contextWindow }))
+    : models;
+
+  // Get current connection status based on provider  
+  const currentConnectionStatus = apiProvider === 'groq' ? groqConnectionStatus : connectionStatus;
 
   const deleteSession = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
@@ -394,7 +470,10 @@ export default function App() {
 
     const newSessions = sessions.filter(s => s.id !== id);
     if (newSessions.length === 0) {
-      const fresh: Session = { id: Date.now(), title: 'New Chat', messages: [], model: models[0]?.name || '', date: Date.now() };
+      const defaultModel = apiProvider === 'groq' && groqModels.length > 0 
+        ? groqModels[0].id 
+        : models[0]?.name || '';
+      const fresh: Session = { id: Date.now(), title: 'New Chat', messages: [], model: defaultModel, date: Date.now() };
       setSessions([fresh]);
       setCurrentSessionId(fresh.id);
       dbManager.put('sessions', fresh).catch(console.error);
@@ -928,6 +1007,83 @@ export default function App() {
     return { content: finalContent, thinking: thinkingContent, tool_calls: toolCalls };
   };
 
+  // Helper: Stream a chat response using Groq API
+  const streamChatWithGroq = async (
+    chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
+    tools: ToolDefinition[] | undefined,
+    startTime: number,
+    updatedMessages: Message[],
+    isVoice: boolean,
+    contentPrefix = ''
+  ): Promise<{ content: string; thinking: string; tool_calls: ToolCall[] }> => {
+    // Convert messages to Groq format
+    const groqMessages = convertToGroqMessages(chatMessages);
+    
+    // Get model info for context window
+    const modelInfo = getGroqModelInfo(selectedModel);
+    const maxTokens = Math.min(params.num_predict, modelInfo?.contextWindow ? modelInfo.contextWindow / 4 : 4096);
+
+    // Initialize message display
+    updateCurrentSession({
+      messages: [...updatedMessages, { role: 'assistant', content: contentPrefix || '...', timing: '0', tokenSpeed: '0' }]
+    });
+
+    let tokens = 0;
+    let finalContent = contentPrefix;
+    const toolCalls: ToolCall[] = [];
+
+    // Stream using Groq
+    const stream = streamGroqChat(groqMessages, selectedModel, {
+      temperature: params.temperature,
+      topP: params.top_p,
+      maxTokens,
+      tools: tools && tools.length > 0 ? tools : undefined,
+      signal: abortControllerRef.current?.signal
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.type === 'error') {
+        throw new Error(chunk.error || 'Unknown Groq error');
+      }
+
+      if (chunk.type === 'content' && chunk.content) {
+        tokens++;
+        finalContent += chunk.content;
+        const elapsed = (Date.now() - startTime) / 1000;
+
+        setSessions(prev => prev.map(s => {
+          if (s.id === currentSessionId) {
+            const newMsgs = s.messages.slice(0, -1);
+            const newAssistantMsg: Message = {
+              role: 'assistant',
+              content: finalContent,
+              timing: elapsed.toFixed(1),
+              tokenSpeed: (tokens / elapsed).toFixed(1)
+            };
+            return { ...s, messages: [...newMsgs, newAssistantMsg] };
+          }
+          return s;
+        }));
+      }
+
+      if (chunk.type === 'tool_call' && chunk.toolCalls) {
+        toolCalls.push(...chunk.toolCalls);
+        console.log('[Groq Tool Calls Detected]', chunk.toolCalls);
+      }
+
+      if (chunk.type === 'done') {
+        if (toolCalls.length === 0) {
+          setStreaming(false);
+          abortControllerRef.current = null;
+          lastAssistantResponseRef.current = finalContent;
+          if (isVoice) speakMessage(finalContent);
+        }
+      }
+    }
+
+    return { content: finalContent, thinking: '', tool_calls: toolCalls };
+  };
+
   const handleSend = async (overrideInput: string | null = null, isVoice = false) => {
     const txt = overrideInput || input;
     if (txt.startsWith('/')) {
@@ -1066,9 +1222,16 @@ export default function App() {
       // If tools are enabled but model confirmed NOT to support them, show notice
       if (toolsEnabled && capabilitiesChecked && !modelSupportsTools && toolRegistry.getToolDefinitions().length > 0) {
         const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
-        await streamChatWithTools(chatMessages, [], startTime, updatedMessages, isVoice, toolNotice);
+        if (apiProvider === 'groq') {
+          await streamChatWithGroq(chatMessages, [], startTime, updatedMessages, isVoice, toolNotice);
+        } else {
+          await streamChatWithTools(chatMessages, [], startTime, updatedMessages, isVoice, toolNotice);
+        }
         return;
       }
+
+      // Select the appropriate streaming function based on provider
+      const streamChat = apiProvider === 'groq' ? streamChatWithGroq : streamChatWithTools;
 
       // If tools are enabled and model supports them, use streaming with tools
       // This handles thinking, content, and tool calls all in one streamed response
@@ -1087,7 +1250,7 @@ export default function App() {
           
           try {
             // Use streaming with tools - handles thinking, content, and tool_calls together
-            const result = await streamChatWithTools(
+            const result = await streamChat(
               chatMessages, 
               tools, 
               startTime, 
@@ -1183,12 +1346,12 @@ export default function App() {
           
           // Stream the response without tools
           const toolNotice = '⚠️ **Note:** This model does not support tool calling. Responding without tools.\n\n---\n\n';
-          await streamChatWithTools(chatMessages, [], startTime, updatedMessages, isVoice, toolNotice);
+          await streamChat(chatMessages, [], startTime, updatedMessages, isVoice, toolNotice);
         }
       } else {
-        // No tools enabled, use streamChatWithTools with empty tools array
+        // No tools enabled, use streaming with empty tools array
         // (handles thinking mode + streaming in unified manner)
-        await streamChatWithTools(chatMessages, [], startTime, updatedMessages, isVoice);
+        await streamChat(chatMessages, [], startTime, updatedMessages, isVoice);
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
@@ -1266,12 +1429,13 @@ export default function App() {
           onSearchChange={setSearchQuery}
           selectedModel={selectedModel}
           onModelChange={(model) => updateCurrentSession({ model })}
-          models={models}
-          connectionStatus={connectionStatus}
+          models={availableModels}
+          connectionStatus={currentConnectionStatus}
           onOpenModelManager={() => setModelMgrOpen(true)}
           onOpenKnowledge={() => setKnowledgeOpen(true)}
           onOpenHelp={() => setHelpOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
+          apiProvider={apiProvider}
         />
       )}
 
@@ -1281,9 +1445,9 @@ export default function App() {
         {zenMode ? (
           <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
             <div className={`px-3 py-1 rounded-full text-xs font-mono ${
-              connectionStatus === 'connected' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+              currentConnectionStatus === 'connected' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
             }`}>
-              {connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}
+              {currentConnectionStatus === 'connected' ? 'Connected' : 'Disconnected'}
             </div>
             <Tooltip content="Exit Zen Mode" position="bottom">
               <button
@@ -1472,6 +1636,11 @@ export default function App() {
             setThinkingEnabled(enabled);
             localStorage.setItem('nexus_thinking_enabled', JSON.stringify(enabled));
           }}
+          // Groq provider props
+          apiProvider={apiProvider}
+          onApiProviderChange={switchApiProvider}
+          groqConnectionStatus={groqConnectionStatus}
+          onTestGroqConnection={checkGroqConnection}
         />
 
         <ModelManagerModal

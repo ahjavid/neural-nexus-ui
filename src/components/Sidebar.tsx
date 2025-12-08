@@ -11,11 +11,13 @@ import {
   Keyboard,
   Settings,
   DownloadCloud,
-  SearchX
+  SearchX,
+  Cloud,
+  Server
 } from 'lucide-react';
 import { Button } from './Button';
 import { Tooltip } from './Tooltip';
-import type { Session, Model } from '../types';
+import type { Session, Model, ApiProvider } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -35,6 +37,7 @@ interface SidebarProps {
   onOpenKnowledge: () => void;
   onOpenHelp: () => void;
   onOpenSettings: () => void;
+  apiProvider?: ApiProvider;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -54,7 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenModelManager,
   onOpenKnowledge,
   onOpenHelp,
-  onOpenSettings
+  onOpenSettings,
+  apiProvider = 'ollama'
 }) => {
   const filteredSessions = sessions.filter(s =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -226,14 +230,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Footer */}
       <div className="p-3 sm:p-4 border-t border-theme-border-primary bg-theme-bg-primary space-y-3 min-w-[280px] sm:min-w-[320px] safe-area-bottom">
         <div>
-          <div className="flex justify-between items-end mb-1">
-            <label className="text-[10px] uppercase font-bold text-theme-text-muted">Active Model</label>
-            <button 
-              onClick={onOpenModelManager} 
-              className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1"
-            >
-              <DownloadCloud size={10} /> Install
-            </button>
+          <div className="flex justify-between items-center mb-1.5">
+            <div className="flex items-center gap-1.5">
+              {apiProvider === 'groq' ? (
+                <Cloud size={12} className="text-purple-400" />
+              ) : (
+                <Server size={12} className="text-indigo-400" />
+              )}
+              <label className="text-[10px] uppercase font-bold text-theme-text-muted">
+                {apiProvider === 'groq' ? 'Groq Model' : 'Ollama Model'}
+              </label>
+            </div>
+            {apiProvider === 'ollama' && (
+              <button 
+                onClick={onOpenModelManager} 
+                className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1"
+              >
+                <DownloadCloud size={10} /> Install
+              </button>
+            )}
           </div>
           <div className="relative">
             <select 
@@ -256,10 +271,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <Tooltip 
             content={connectionStatus === 'connected' 
-              ? 'Connected to Ollama' 
+              ? `Connected to ${apiProvider === 'groq' ? 'Groq' : 'Ollama'}` 
               : connectionStatus === 'checking' 
               ? 'Connecting...' 
-              : 'Disconnected - Click Settings to configure'
+              : `Disconnected - Click Settings to configure ${apiProvider === 'groq' ? 'Groq API' : 'Ollama'}`
             }
             position="left"
           >

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle, Brain, Zap } from 'lucide-react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle, Brain, Zap, Cloud, Server } from 'lucide-react';
 import { Button } from './Button';
-import type { ModelParams } from '../types';
+import type { ModelParams, ApiProvider, ConnectionStatus } from '../types';
 import { formatBytes, getApiUrl } from '../utils/helpers';
 import { toolRegistry, setToolConfig, getToolConfigValue } from '../utils/tools';
 import { downloadExport, readImportFile, importData, type ExportData } from '../utils/storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { getGroqApiKey, setGroqApiKey, hasGroqApiKey, testGroqConnection } from '../utils/groq';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -26,6 +27,11 @@ interface SettingsModalProps {
   thinkingEnabled: boolean;
   thinkingSupported: boolean;
   onThinkingEnabledChange: (enabled: boolean) => void;
+  // Groq provider
+  apiProvider: ApiProvider;
+  onApiProviderChange: (provider: ApiProvider) => void;
+  groqConnectionStatus: ConnectionStatus;
+  onTestGroqConnection: () => void;
 }
 
 const defaultParams: ModelParams = {
@@ -60,7 +66,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToolsEnabledChange,
   thinkingEnabled,
   thinkingSupported,
-  onThinkingEnabledChange
+  onThinkingEnabledChange,
+  apiProvider,
+  onApiProviderChange,
+  groqConnectionStatus,
+  onTestGroqConnection
 }) => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -68,6 +78,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tavilyApiKey, setTavilyApiKey] = useState(getToolConfigValue('tavilyApiKey') || '');
   const [embeddingModel, setEmbeddingModel] = useState(getToolConfigValue('embeddingModel') || 'mxbai-embed-large:latest');
   const [showApiKey, setShowApiKey] = useState(false);
+  
+  // Groq state
+  const [groqApiKey, setGroqApiKeyState] = useState(getGroqApiKey() || '');
+  const [showGroqApiKey, setShowGroqApiKey] = useState(false);
+  const [groqTestStatus, setGroqTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [embeddingModels, setEmbeddingModels] = useState<string[]>([]);
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
   
@@ -203,6 +218,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const { theme, setTheme } = useTheme();
 
+  // Handler for Groq API key testing
+  const handleTestGroqApiKey = async () => {
+    if (!groqApiKey) return;
+    setGroqTestStatus('testing');
+    const result = await testGroqConnection();
+    if (result.success) {
+      setGroqTestStatus('success');
+      onTestGroqConnection();
+      setTimeout(() => setGroqTestStatus('idle'), 2000);
+    } else {
+      setGroqTestStatus('error');
+      setTimeout(() => setGroqTestStatus('idle'), 3000);
+    }
+  };
+
+  // Handler for Groq API key change
+  const handleGroqApiKeyChange = (value: string) => {
+    setGroqApiKeyState(value);
+    setGroqApiKey(value);
+    if (value && value.startsWith('gsk_')) {
+      // Auto-test when key looks valid
+      setTimeout(() => {
+        handleTestGroqApiKey();
+      }, 500);
+    }
+  };
+
   if (!isOpen) return null;
 
   const updateParam = (key: keyof ModelParams, value: number) => {
@@ -224,19 +266,100 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
         
         <div className="p-4 sm:p-6 space-y-5 max-h-[75vh] sm:max-h-[70vh] overflow-y-auto custom-scrollbar momentum-scroll safe-area-bottom">
-          {/* Endpoint */}
+          {/* API Provider Selector */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-theme-text-muted uppercase tracking-wider">Ollama Endpoint</label>
+            <label className="text-xs font-bold text-theme-text-muted uppercase tracking-wider">AI Provider</label>
             <div className="flex gap-2">
-              <input 
-                type="text" 
-                value={endpoint} 
-                onChange={(e) => onEndpointChange(e.target.value)} 
-                className="flex-1 bg-theme-bg-primary border border-theme-border-secondary rounded-lg px-3 py-2 text-sm font-mono text-indigo-400 focus:border-indigo-500 focus:outline-none" 
-              />
-              <Button variant="secondary" onClick={onTestConnection} icon={RefreshCw} title="Test" />
+              <button
+                onClick={() => onApiProviderChange('ollama')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
+                  apiProvider === 'ollama'
+                    ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400'
+                    : 'bg-theme-bg-primary border-theme-border-secondary text-theme-text-muted hover:border-theme-border-primary hover:text-theme-text-secondary'
+                }`}
+              >
+                <Server size={16} />
+                <span className="text-sm font-medium">Ollama</span>
+                <span className="text-[10px] opacity-60">Local</span>
+              </button>
+              <button
+                onClick={() => onApiProviderChange('groq')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
+                  apiProvider === 'groq'
+                    ? 'bg-orange-500/20 border-orange-500 text-orange-400'
+                    : 'bg-theme-bg-primary border-theme-border-secondary text-theme-text-muted hover:border-theme-border-primary hover:text-theme-text-secondary'
+                }`}
+              >
+                <Cloud size={16} />
+                <span className="text-sm font-medium">Groq</span>
+                <span className="text-[10px] opacity-60">Cloud</span>
+              </button>
             </div>
+            <p className="text-[10px] text-theme-text-muted">
+              {apiProvider === 'ollama' 
+                ? 'Run AI models locally with Ollama. Free, private, offline-capable.'
+                : 'Ultra-fast cloud inference (100-500+ tok/s). Requires API key from groq.com'}
+            </p>
           </div>
+
+          {/* Groq API Key (shown when Groq is selected or has key) */}
+          {(apiProvider === 'groq' || hasGroqApiKey()) && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-theme-text-muted uppercase tracking-wider flex items-center gap-2">
+                <Key size={12} className="text-orange-400" />
+                Groq API Key
+                {groqConnectionStatus === 'connected' && (
+                  <span className="text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">Connected</span>
+                )}
+                {groqConnectionStatus === 'error' && (
+                  <span className="text-[9px] px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded">Error</span>
+                )}
+              </label>
+              <div className="flex gap-2">
+                <input 
+                  type={showGroqApiKey ? 'text' : 'password'}
+                  value={groqApiKey} 
+                  onChange={(e) => handleGroqApiKeyChange(e.target.value)}
+                  placeholder="gsk_..."
+                  className="flex-1 bg-theme-bg-primary border border-theme-border-secondary rounded-lg px-3 py-2 text-sm font-mono text-orange-400 focus:border-orange-500 focus:outline-none" 
+                />
+                <button
+                  onClick={() => setShowGroqApiKey(!showGroqApiKey)}
+                  className="px-3 text-xs text-theme-text-muted hover:text-theme-text-secondary border border-theme-border-secondary rounded-lg"
+                >
+                  {showGroqApiKey ? 'Hide' : 'Show'}
+                </button>
+                <Button 
+                  variant="secondary" 
+                  onClick={handleTestGroqApiKey}
+                  disabled={!groqApiKey || groqTestStatus === 'testing'}
+                  icon={groqTestStatus === 'testing' ? Loader2 : groqTestStatus === 'success' ? Check : groqTestStatus === 'error' ? AlertCircle : RefreshCw}
+                  title="Test"
+                  className={groqTestStatus === 'success' ? 'text-green-400' : groqTestStatus === 'error' ? 'text-red-400' : ''}
+                />
+              </div>
+              <p className="text-[10px] text-theme-text-muted">
+                Get your free API key at <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">console.groq.com</a>. 
+                Groq offers blazing-fast inference for Llama 3.3, Mixtral, and more.
+              </p>
+            </div>
+          )}
+
+          {/* Ollama Endpoint (shown when Ollama is selected) */}
+          {apiProvider === 'ollama' && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-theme-text-muted uppercase tracking-wider">Ollama Endpoint</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={endpoint} 
+                  onChange={(e) => onEndpointChange(e.target.value)} 
+                  className="flex-1 bg-theme-bg-primary border border-theme-border-secondary rounded-lg px-3 py-2 text-sm font-mono text-indigo-400 focus:border-indigo-500 focus:outline-none" 
+                />
+                <Button variant="secondary" onClick={onTestConnection} icon={RefreshCw} title="Test" />
+              </div>
+            </div>
+          )}
           
           {/* System Prompt */}
           <div className="space-y-2">

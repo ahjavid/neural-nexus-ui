@@ -91,3 +91,26 @@ export {
   type RewrittenQuery
 } from './neurosymbolic';
 
+// Groq API exports
+export {
+  // Configuration
+  getGroqApiKey,
+  setGroqApiKey,
+  isGroqEnabled,
+  setGroqEnabled,
+  hasGroqApiKey,
+  // API functions
+  testGroqConnection,
+  listGroqModels,
+  getGroqModelInfo,
+  isGroqChatModel,
+  streamGroqChat,
+  chatGroq,
+  // Conversion helpers
+  convertToGroqMessages,
+  convertToGroqTools,
+  // Constants
+  GROQ_CHAT_MODELS,
+  GROQ_RECOMMENDED_MODELS,
+  getKnownGroqModels
+} from './groq';

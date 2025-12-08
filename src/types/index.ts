@@ -196,3 +196,116 @@ export interface ToolMessage extends Omit<Message, 'role'> {
   tool_calls?: ToolCall[];
   tool_name?: string;
 }
+
+// ============================================
+// API Provider Types (Ollama, Groq, etc.)
+// ============================================
+
+export type ApiProvider = 'ollama' | 'groq';
+
+export interface ProviderConfig {
+  provider: ApiProvider;
+  endpoint: string;
+  apiKey?: string;
+}
+
+// Groq-specific types
+export interface GroqModel {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
+  active: boolean;
+  context_window: number;
+  max_completion_tokens?: number;
+}
+
+export interface GroqModelList {
+  object: string;
+  data: GroqModel[];
+}
+
+// Groq Chat Completion types (OpenAI-compatible)
+export interface GroqChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_calls?: GroqToolCall[];
+  tool_call_id?: string;
+}
+
+export interface GroqToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string; // JSON string
+  };
+}
+
+export interface GroqChatCompletionRequest {
+  model: string;
+  messages: GroqChatMessage[];
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number; // Deprecated, use max_completion_tokens
+  max_completion_tokens?: number;
+  stream?: boolean;
+  tools?: ToolDefinition[];
+  tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } };
+  stop?: string | string[];
+  seed?: number; // For deterministic outputs (best effort)
+  // NOTE: frequency_penalty and presence_penalty are documented but NOT YET SUPPORTED by Groq
+}
+
+export interface GroqChatCompletionResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    message: GroqChatMessage;
+    finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter';
+  }>;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface GroqStreamChunk {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    delta: {
+      role?: string;
+      content?: string;
+      tool_calls?: Array<{
+        index: number;
+        id?: string;
+        type?: 'function';
+        function?: {
+          name?: string;
+          arguments?: string;
+        };
+      }>;
+    };
+    finish_reason: string | null;
+  }>;
+}
+
+// Unified model type for UI display
+export interface UnifiedModel {
+  id: string;
+  name: string;
+  displayName?: string;
+  provider: ApiProvider;
+  contextWindow?: number;
+  maxCompletionTokens?: number;
+  supportsTools?: boolean;
+  supportsVision?: boolean;
+}

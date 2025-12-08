@@ -1,13 +1,15 @@
 # Neural Nexus UI
 
-A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
+A modern, feature-rich chat interface for [Ollama](https://ollama.ai) and [Groq](https://groq.com) - run AI models locally or blazing-fast in the cloud.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.23-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.24-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
 ## ✨ Features
 
+- **🚀 Dual Provider Support** - Ollama (local) and Groq (cloud) with seamless switching
+- **⚡ Groq Integration** - Blazing-fast cloud inference (100-500+ tokens/sec) with Llama 4, Qwen 3, and more
 - **🎨 Light & Dark Themes** - Professional color palette with system preference detection
 - **🧠 Neurosymbolic AI Search** - Hybrid search combining neural embeddings with symbolic reasoning
 - **⚡ Persistent Embedding Cache** - Embeddings saved to IndexedDB for instant RAG on page reload
@@ -555,6 +557,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.24 (December 2025)
+- **🚀 Groq API Integration** - Added support for Groq's ultra-fast cloud inference as alternative to Ollama
+- **Dual Provider Architecture** - Seamlessly switch between Ollama (local) and Groq (cloud) in Settings
+- **New Groq Models** - Access to Llama 4, Qwen 3, OpenAI GPT-OSS, Moonshot Kimi K2, and Groq Compound AI
+- **Smart Model Filtering** - Automatically filters out non-chat models (audio/TTS/moderation)
+- **Parameter Compatibility** - Proper handling of Groq-supported parameters (temperature, top_p, max_tokens, seed, stop)
+- **Provider Indicators** - Visual icons showing active provider (Cloud/Server) in sidebar
+- **Connection Testing** - Test Groq API key connectivity before use
+- **Updated Model Info** - Real-time model list with context windows up to 262K tokens
 
 ### v1.1.23 (December 2025)
 - **HyDE (Hypothetical Document Embedding)** - Generate ideal answer docs for better semantic matching on vague queries
