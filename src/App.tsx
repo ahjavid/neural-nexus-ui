@@ -809,6 +809,7 @@ export default function App() {
         messages: chatMessages,
         stream: true, // Stream with tools support
         options,
+        keep_alive: '30m', // Keep model in memory for 30 minutes (faster follow-up responses)
         // Enable extended thinking if model supports it and user has it enabled
         ...(thinkingEnabled && modelCapabilities.includes('thinking') && { think: true }),
         // Include tools if provided

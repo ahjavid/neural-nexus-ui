@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.21-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.22-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -555,6 +555,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.22 (December 2025)
+- **Structured Output for Summaries** - Uses Ollama's JSON Schema format for guaranteed valid JSON responses
+- **Richer Summary Output** - Extracts summary, key_topics, and action_items from trimmed conversations
+- **keep_alive Optimization** - Utility model immediately unloads after summary (saves VRAM)
+- **Model Warming** - Main chat model stays in memory for 30 minutes for faster follow-up responses
+- **Type Safety** - Added `StructuredSummary` interface and `SUMMARY_SCHEMA` constant
 
 ### v1.1.21 (December 2025)
 - **Batch Embedding API** - Uses Ollama's `/api/embed` batch endpoint for ~60% faster knowledge base indexing

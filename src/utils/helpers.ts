@@ -323,8 +323,43 @@ export interface EnhancedContextResult extends ContextResult {
 }
 
 /**
+ * JSON schema for structured summary output.
+ * Ollama's structured output guarantees valid JSON matching this schema.
+ */
+const SUMMARY_SCHEMA = {
+  type: 'object',
+  properties: {
+    summary: {
+      type: 'string',
+      description: 'A 2-3 sentence summary of the conversation'
+    },
+    key_topics: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'List of main topics discussed'
+    },
+    action_items: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Any pending requests or tasks mentioned'
+    }
+  },
+  required: ['summary']
+};
+
+/**
+ * Structured summary response from Ollama.
+ */
+interface StructuredSummary {
+  summary: string;
+  key_topics?: string[];
+  action_items?: string[];
+}
+
+/**
  * Generate a summary of conversation messages using the LLM.
- * Used when context needs to be trimmed to preserve important context.
+ * Uses Ollama's structured output (JSON Schema) for guaranteed valid JSON.
+ * Uses keep_alive: '0' to immediately unload utility model after use (saves VRAM).
  * 
  * @param messages - Messages to summarize
  * @param config - Summary configuration (endpoint, model)
@@ -343,15 +378,15 @@ export const generateConversationSummary = async (
     .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 500)}${m.content.length > 500 ? '...' : ''}`)
     .join('\n\n');
   
-  const summaryPrompt = `Summarize this conversation excerpt in 2-3 concise sentences. Focus on:
-- Key topics discussed
-- Important decisions or conclusions
-- Any specific requests or context that should be remembered
+  const summaryPrompt = `Analyze this conversation and provide a structured summary.
 
 Conversation:
 ${conversationText}
 
-Summary (be brief and factual):`;
+Provide a JSON response with:
+- summary: 2-3 concise sentences covering the main discussion
+- key_topics: array of main topics (3-5 items max)
+- action_items: any pending requests or tasks (can be empty array)`;
 
   try {
     const response = await fetch(getApiUrl(endpoint, '/api/generate'), {
@@ -361,10 +396,12 @@ Summary (be brief and factual):`;
         model,
         prompt: summaryPrompt,
         stream: false,
+        format: SUMMARY_SCHEMA,  // Structured output - guarantees valid JSON
+        keep_alive: '0',         // Immediately unload utility model (saves VRAM)
         options: {
-          temperature: 0.3,  // Low temp for factual summary
+          temperature: 0.3,      // Low temp for factual summary
           num_predict: maxSummaryTokens,
-          num_ctx: 2048  // Small context for fast summary
+          num_ctx: 2048          // Small context for fast summary
         }
       })
     });
@@ -375,10 +412,34 @@ Summary (be brief and factual):`;
     }
     
     const data = await response.json();
-    const summary = data.response?.trim() || '';
     
-    console.log('[Conversation Summary] Generated:', summary.slice(0, 100) + '...');
-    return summary;
+    // Parse structured JSON response
+    try {
+      const structured: StructuredSummary = JSON.parse(data.response || '{}');
+      
+      // Build rich summary with topics if available
+      let summary = structured.summary || '';
+      
+      if (structured.key_topics?.length) {
+        summary += `\n\n**Topics:** ${structured.key_topics.join(', ')}`;
+      }
+      
+      if (structured.action_items?.length) {
+        summary += `\n\n**Pending:** ${structured.action_items.join('; ')}`;
+      }
+      
+      console.log('[Conversation Summary] Structured output:', {
+        summary: summary.slice(0, 80) + '...',
+        topics: structured.key_topics?.length || 0,
+        actions: structured.action_items?.length || 0
+      });
+      
+      return summary;
+    } catch {
+      // Fallback: use raw response if JSON parsing fails (shouldn't happen with structured output)
+      console.warn('[Summary] JSON parse failed, using raw response');
+      return data.response?.trim() || '';
+    }
   } catch (error) {
     console.warn('[Summary] Error generating summary:', error);
     return '';
