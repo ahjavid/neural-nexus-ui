@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.20-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.21-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -556,9 +556,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📋 Changelog
 
+### v1.1.21 (December 2025)
+- **Batch Embedding API** - Uses Ollama's `/api/embed` batch endpoint for ~60% faster knowledge base indexing
+- **Single API Call** - Embeds multiple texts in one request instead of N sequential calls
+- **Configurable Batch Size** - Processes up to 50 texts per batch to balance speed and memory
+- **Graceful Fallback** - Falls back to sequential embedding if batch API fails
+- **Updated Embedding Endpoint** - Migrated from `/api/embeddings` to `/api/embed` for batch support
+
 ### v1.1.20 (December 2025)
 - **Utility Model Setting** - Configure a smaller/faster model for conversation summaries
-- **Improved Performance** - Summary generation uses dedicated utility model (e.g., qwen2.5:1.5b) instead of main chat model
+- **Improved Performance** - Summary generation uses dedicated utility model (e.g., llama3.2:3b) instead of main chat model
 - **Settings UI** - New "Utility Model" selector in Tools settings with model refresh
 - **Smart Fallback** - Uses main chat model if no utility model is configured
 

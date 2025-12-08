@@ -696,15 +696,15 @@ let lastSearchExplanation: {
 export const getLastSearchExplanation = () => lastSearchExplanation;
 
 /**
- * Get embedding from Ollama
+ * Get embedding from Ollama (single text)
  */
 const getEmbedding = async (text: string, model: string, endpoint: string): Promise<number[]> => {
-  const response = await fetch(getApiUrl(endpoint, '/api/embeddings'), {
+  const response = await fetch(getApiUrl(endpoint, '/api/embed'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: model,
-      prompt: text
+      input: text
     })
   });
   
@@ -713,7 +713,58 @@ const getEmbedding = async (text: string, model: string, endpoint: string): Prom
   }
   
   const data = await response.json();
-  return data.embedding;
+  return data.embeddings[0];
+};
+
+/**
+ * Get embeddings from Ollama in batch (multiple texts in one API call)
+ * This is much more efficient than calling getEmbedding() multiple times
+ * 
+ * @param texts - Array of texts to embed
+ * @param model - Embedding model name
+ * @param endpoint - Ollama endpoint URL
+ * @param batchSize - Max texts per API call (default 50, adjust based on memory)
+ * @returns Array of embeddings in same order as input texts
+ */
+const getBatchEmbeddings = async (
+  texts: string[],
+  model: string,
+  endpoint: string,
+  batchSize: number = 50
+): Promise<number[][]> => {
+  if (texts.length === 0) return [];
+  
+  const allEmbeddings: number[][] = [];
+  
+  // Process in batches to avoid overwhelming the API
+  for (let i = 0; i < texts.length; i += batchSize) {
+    const batch = texts.slice(i, i + batchSize);
+    
+    console.log(`[Batch Embedding] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(texts.length / batchSize)} (${batch.length} texts)`);
+    
+    const response = await fetch(getApiUrl(endpoint, '/api/embed'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        input: batch
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Batch Embedding API returned HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.embeddings || data.embeddings.length !== batch.length) {
+      throw new Error(`Expected ${batch.length} embeddings, got ${data.embeddings?.length || 0}`);
+    }
+    
+    allEmbeddings.push(...data.embeddings);
+  }
+  
+  return allEmbeddings;
 };
 
 /**
@@ -797,35 +848,77 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
     nodeEmbeddings: new Map()
   };
   
+  // Collect all texts to embed with their metadata
+  const textsToEmbed: Array<{
+    id: string;
+    text: string;
+    displayContent: string;
+  }> = [];
+  
   for (const entry of entries) {
-    try {
-      if (entry.chunks && entry.chunks.length > 0) {
-        // Embed each chunk separately for better retrieval
-        for (const chunk of entry.chunks) {
-          const chunkId = `${entry.id}-${chunk.id}`;
-          const embedding = await getEmbedding(chunk.content, config.embeddingModel, config.ollamaEndpoint);
-          cache.entries.set(chunkId, {
-            id: chunkId,
-            content: `**${entry.title}** (chunk ${chunk.index + 1}/${entry.chunks.length})\n${chunk.content}`,
-            embedding
-          });
-          // Store in nodeEmbeddings for hybrid search
-          cache.nodeEmbeddings!.set(chunkId, embedding);
-        }
-      } else {
-        // Embed whole document
-        const searchText = `${entry.title}\n\n${entry.content}`;
-        const embedding = await getEmbedding(searchText, config.embeddingModel, config.ollamaEndpoint);
-        cache.entries.set(String(entry.id), {
-          id: String(entry.id),
-          content: `**${entry.title}**\n${entry.content}`,
+    if (entry.chunks && entry.chunks.length > 0) {
+      // Add each chunk
+      for (const chunk of entry.chunks) {
+        const chunkId = `${entry.id}-${chunk.id}`;
+        textsToEmbed.push({
+          id: chunkId,
+          text: chunk.content,
+          displayContent: `**${entry.title}** (chunk ${chunk.index + 1}/${entry.chunks.length})\n${chunk.content}`
+        });
+      }
+    } else {
+      // Add whole document
+      textsToEmbed.push({
+        id: String(entry.id),
+        text: `${entry.title}\n\n${entry.content}`,
+        displayContent: `**${entry.title}**\n${entry.content}`
+      });
+    }
+  }
+  
+  console.log(`[Neurosymbolic RAG] Embedding ${textsToEmbed.length} texts using batch API...`);
+  const startTime = Date.now();
+  
+  try {
+    // Use batch embedding for efficiency (single API call per batch instead of N calls)
+    const embeddings = await getBatchEmbeddings(
+      textsToEmbed.map(t => t.text),
+      config.embeddingModel,
+      config.ollamaEndpoint,
+      50 // batch size
+    );
+    
+    // Map embeddings back to cache entries
+    for (let i = 0; i < textsToEmbed.length; i++) {
+      const item = textsToEmbed[i];
+      const embedding = embeddings[i];
+      
+      cache.entries.set(item.id, {
+        id: item.id,
+        content: item.displayContent,
+        embedding
+      });
+      cache.nodeEmbeddings!.set(item.id, embedding);
+    }
+    
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Neurosymbolic RAG] ✓ Batch embedded ${textsToEmbed.length} texts in ${duration}s`);
+  } catch (e) {
+    console.error('[Neurosymbolic RAG] Batch embedding failed, falling back to sequential:', e);
+    
+    // Fallback to sequential embedding if batch fails
+    for (const item of textsToEmbed) {
+      try {
+        const embedding = await getEmbedding(item.text, config.embeddingModel, config.ollamaEndpoint);
+        cache.entries.set(item.id, {
+          id: item.id,
+          content: item.displayContent,
           embedding
         });
-        // Store in nodeEmbeddings for hybrid search
-        cache.nodeEmbeddings!.set(String(entry.id), embedding);
+        cache.nodeEmbeddings!.set(item.id, embedding);
+      } catch (err) {
+        console.error(`[Neurosymbolic RAG] Failed to embed ${item.id}:`, err);
       }
-    } catch (e) {
-      console.error(`[Neurosymbolic RAG] Failed to embed entry ${entry.title}:`, e);
     }
   }
   
