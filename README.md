@@ -174,8 +174,6 @@ neural-nexus-ui/
 │   ├── main.tsx          # React entry point
 │   ├── vite-env.d.ts     # Vite type declarations
 │   └── index.css         # Global styles & Tailwind
-├── .github/
-│   └── copilot-instructions.md  # GitHub Copilot context
 ├── assets/               # Screenshots and media
 ├── index.html            # HTML template
 ├── tsconfig.json         # TypeScript configuration
