@@ -166,11 +166,13 @@ export interface ToolDefinition {
 }
 
 export interface ToolCall {
+  id?: string; // Required for Groq - maps to tool_call_id in responses
   type: 'function';
   function: {
     index?: number;
     name: string;
-    arguments: Record<string, unknown>;
+    // Can be string (from Groq API) or parsed object (from Ollama or after parsing)
+    arguments: Record<string, unknown> | string;
   };
 }
 
@@ -220,82 +222,10 @@ export interface GroqModel {
   max_completion_tokens?: number;
 }
 
-export interface GroqModelList {
-  object: string;
-  data: GroqModel[];
-}
-
-// Groq Chat Completion types (OpenAI-compatible)
+// Groq Chat Message type (used for conversion)
 export interface GroqChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | null;
-  tool_calls?: GroqToolCall[];
-  tool_call_id?: string;
-}
-
-export interface GroqToolCall {
-  id: string;
-  type: 'function';
-  function: {
-    name: string;
-    arguments: string; // JSON string
-  };
-}
-
-export interface GroqChatCompletionRequest {
-  model: string;
-  messages: GroqChatMessage[];
-  temperature?: number;
-  top_p?: number;
-  max_tokens?: number; // Deprecated, use max_completion_tokens
-  max_completion_tokens?: number;
-  stream?: boolean;
-  tools?: ToolDefinition[];
-  tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } };
-  stop?: string | string[];
-  seed?: number; // For deterministic outputs (best effort)
-  // NOTE: frequency_penalty and presence_penalty are documented but NOT YET SUPPORTED by Groq
-}
-
-export interface GroqChatCompletionResponse {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    message: GroqChatMessage;
-    finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter';
-  }>;
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-}
-
-export interface GroqStreamChunk {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    delta: {
-      role?: string;
-      content?: string;
-      tool_calls?: Array<{
-        index: number;
-        id?: string;
-        type?: 'function';
-        function?: {
-          name?: string;
-          arguments?: string;
-        };
-      }>;
-    };
-    finish_reason: string | null;
-  }>;
+  content?: string | null;
 }
 
 // Unified model type for UI display

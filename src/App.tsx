@@ -322,14 +322,14 @@ export default function App() {
 
   // Check model capabilities when selected model changes
   useEffect(() => {
-    if (selectedModel && endpoint) {
+    if (selectedModel) {
       setCapabilitiesChecked(false);
       checkModelCapabilities(selectedModel);
     } else {
       setModelCapabilities([]);
       setCapabilitiesChecked(true);
     }
-  }, [selectedModel, endpoint]);
+  }, [selectedModel, endpoint, apiProvider]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -437,6 +437,13 @@ export default function App() {
     if (window.innerWidth < 1024) setSidebarOpen(false);
   }, [models, apiProvider, groqModels]);
 
+  // Helper to set model directly on current session (for provider switching)
+  const setSelectedModelDirectly = useCallback((modelName: string) => {
+    setSessions(prev => prev.map(s => 
+      s.id === currentSessionId ? { ...s, model: modelName } : s
+    ));
+  }, [currentSessionId]);
+
   // Handle API provider switch
   const switchApiProvider = useCallback((provider: ApiProvider) => {
     setApiProvider(provider);
@@ -444,12 +451,13 @@ export default function App() {
     setGroqEnabled(provider === 'groq');
     
     // Switch to first available model for the new provider
+    // This is critical - we must switch models when changing providers
     if (provider === 'groq' && groqModels.length > 0) {
-      updateCurrentSession({ model: groqModels[0].id });
+      setSelectedModelDirectly(groqModels[0].id);
     } else if (provider === 'ollama' && models.length > 0) {
-      updateCurrentSession({ model: models[0].name });
+      setSelectedModelDirectly(models[0].name);
     }
-  }, [groqModels, models]);
+  }, [groqModels, models, setSelectedModelDirectly]);
 
   // Get current available models based on provider
   const availableModels = apiProvider === 'groq' 
@@ -487,9 +495,44 @@ export default function App() {
     setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, ...updates } : s));
   };
 
-  // Check model capabilities via /api/show
+  // Check model capabilities via /api/show (Ollama) or metadata (Groq)
   const checkModelCapabilities = async (modelName: string) => {
     try {
+      // For Groq models, use the static metadata instead of API call
+      if (apiProvider === 'groq') {
+        const groqInfo = getGroqModelInfo(modelName);
+        const caps: string[] = [];
+        
+        // DISABLED: Groq tool calling is unreliable - the model often generates
+        // malformed tool calls in <function=name(...)> format instead of proper JSON.
+        // Keeping tools disabled until Groq fixes this model behavior.
+        // if (groqInfo?.supportsTools) {
+        //   caps.push('tools');
+        // }
+        
+        if (groqInfo?.supportsVision) {
+          caps.push('vision');
+        }
+        // Groq models don't support thinking/reasoning mode in the same way as Ollama
+        
+        console.log(`Groq model ${modelName} capabilities:`, caps, '(tools disabled due to Groq model issues)');
+        setModelCapabilities(caps);
+        setThinkingEnabled(false); // Groq doesn't support thinking mode
+        setCapabilitiesChecked(true);
+        return;
+      }
+      
+      // For Ollama: Validate model exists in available models before checking
+      // This prevents 404 errors when switching from Groq to Ollama
+      const modelExists = models.some(m => m.name === modelName);
+      if (!modelExists) {
+        console.warn(`Model ${modelName} not found in Ollama models, skipping capabilities check`);
+        setModelCapabilities([]);
+        setCapabilitiesChecked(true);
+        return;
+      }
+      
+      // For Ollama models, check via API
       const response = await fetch(getApiUrl(endpoint, '/api/show'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -819,7 +862,7 @@ export default function App() {
   // Based on Ollama's streaming tool call pattern - handles thinking, content, and tool_calls in one stream
   // Returns tool calls if any were made, otherwise returns the final content
   const streamChatWithTools = async (
-    chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
+    chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string; tool_call_id?: string }>,
     tools: ToolDefinition[] | undefined,
     startTime: number,
     updatedMessages: Message[],
@@ -1009,13 +1052,15 @@ export default function App() {
 
   // Helper: Stream a chat response using Groq API
   const streamChatWithGroq = async (
-    chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }>,
-    tools: ToolDefinition[] | undefined,
+    chatMessages: Array<{ role: string; content: string; images?: string[] }>,
+    _tools: ToolDefinition[] | undefined, // Tools disabled for Groq
     startTime: number,
     updatedMessages: Message[],
     isVoice: boolean,
     contentPrefix = ''
   ): Promise<{ content: string; thinking: string; tool_calls: ToolCall[] }> => {
+    console.log(`[streamChatWithGroq] Starting stream for model: ${selectedModel}, messages: ${chatMessages.length}`);
+    
     // Convert messages to Groq format
     const groqMessages = convertToGroqMessages(chatMessages);
     
@@ -1030,14 +1075,12 @@ export default function App() {
 
     let tokens = 0;
     let finalContent = contentPrefix;
-    const toolCalls: ToolCall[] = [];
 
-    // Stream using Groq
+    // Stream using Groq (tools disabled for Groq due to model limitations)
     const stream = streamGroqChat(groqMessages, selectedModel, {
       temperature: params.temperature,
       topP: params.top_p,
       maxTokens,
-      tools: tools && tools.length > 0 ? tools : undefined,
       signal: abortControllerRef.current?.signal
     });
 
@@ -1066,22 +1109,16 @@ export default function App() {
         }));
       }
 
-      if (chunk.type === 'tool_call' && chunk.toolCalls) {
-        toolCalls.push(...chunk.toolCalls);
-        console.log('[Groq Tool Calls Detected]', chunk.toolCalls);
-      }
-
       if (chunk.type === 'done') {
-        if (toolCalls.length === 0) {
-          setStreaming(false);
-          abortControllerRef.current = null;
-          lastAssistantResponseRef.current = finalContent;
-          if (isVoice) speakMessage(finalContent);
-        }
+        setStreaming(false);
+        abortControllerRef.current = null;
+        lastAssistantResponseRef.current = finalContent;
+        if (isVoice) speakMessage(finalContent);
       }
     }
 
-    return { content: finalContent, thinking: '', tool_calls: toolCalls };
+    // No tool calls for Groq - return empty array
+    return { content: finalContent, thinking: '', tool_calls: [] };
   };
 
   const handleSend = async (overrideInput: string | null = null, isVoice = false) => {
@@ -1091,6 +1128,24 @@ export default function App() {
       return;
     }
     if ((!txt.trim() && attachments.length === 0) || !selectedModel) return;
+    
+    // Validate that selected model is valid for current provider
+    const isValidModel = apiProvider === 'groq' 
+      ? groqModels.some(m => m.id === selectedModel)
+      : models.some(m => m.name === selectedModel);
+    
+    if (!isValidModel) {
+      console.error(`Model ${selectedModel} is not valid for provider ${apiProvider}`);
+      // Auto-switch to first available model
+      const fallbackModel = apiProvider === 'groq' 
+        ? groqModels[0]?.id 
+        : models[0]?.name;
+      if (fallbackModel) {
+        setSelectedModelDirectly(fallbackModel);
+        console.log(`Switched to fallback model: ${fallbackModel}`);
+      }
+      return; // Don't send - let user try again with correct model
+    }
 
     const images = attachments.filter(a => a.type === 'image').map(a => a.content.split(',')[1]);
     const fileContexts = attachments.filter(a => a.type === 'file').map(a => `\n--- FILE: ${a.name} ---\n${a.content}\n--- END FILE ---\n`).join('');
@@ -1110,7 +1165,20 @@ export default function App() {
     };
 
     const startTime = Date.now();
-    const updatedMessages = [...messages, userMsg];
+    
+    // Clean up any incomplete/placeholder assistant messages from previous failed attempts
+    // These can occur when streaming fails or is aborted before completion
+    const cleanedMessages = messages.filter((msg, idx) => {
+      // Keep all non-assistant messages
+      if (msg.role !== 'assistant') return true;
+      // Keep assistant messages with real content (not just placeholder)
+      if (msg.content && msg.content !== '...' && msg.content.trim().length > 3) return true;
+      // Remove placeholder/incomplete assistant messages
+      console.log(`[Cleanup] Removing incomplete assistant message at index ${idx}: "${msg.content?.substring(0, 50)}..."`);
+      return false;
+    });
+    
+    const updatedMessages = [...cleanedMessages, userMsg];
     updateCurrentSession({ messages: updatedMessages });
 
     if (messages.length === 0) {
@@ -1209,7 +1277,7 @@ export default function App() {
       }
       
       // Build chat messages for API with managed context
-      let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }> = [
+      let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string; tool_call_id?: string }> = [
         { role: 'system', content: finalSystemPrompt },
         ...contextResult.messages
       ];
@@ -1232,6 +1300,7 @@ export default function App() {
 
       // Select the appropriate streaming function based on provider
       const streamChat = apiProvider === 'groq' ? streamChatWithGroq : streamChatWithTools;
+      console.log(`[handleSend] Using provider: ${apiProvider}, model: ${selectedModel}, tools enabled: ${tools.length > 0}`);
 
       // If tools are enabled and model supports them, use streaming with tools
       // This handles thinking, content, and tool calls all in one streamed response
@@ -1286,11 +1355,13 @@ export default function App() {
             if (toolCalls.length > 0) {
               setExecutingTools(true);
               
-              // Add assistant message with thinking, content, and tool calls to chat history
+              console.log('[Tool Flow] Tool calls detected:', toolCalls.map(tc => ({ id: tc.id, name: tc.function.name, args: tc.function.arguments })));
+              
+              // Add assistant message with tool calls to chat history
+              // Note: content is set to empty string here, convertToGroqMessages will omit it
               chatMessages.push({
                 role: 'assistant',
                 content: result.content || '',
-                // Note: thinking is included in content as <think> block already
                 tool_calls: toolCalls
               });
               
@@ -1302,16 +1373,21 @@ export default function App() {
               setConversationContext(contextForTools);
               
               // Execute all tool calls
+              console.log('[Tool Flow] Executing tools...');
               const toolResults = await toolRegistry.executeToolCalls(toolCalls);
+              console.log('[Tool Flow] Tool results:', toolResults.map(tr => ({ name: tr.name, id: tr.tool_call_id, result: tr.result.substring(0, 100) })));
               
-              // Add tool results to chat history
+              // Add tool results to chat history - include tool_call_id for Groq API
               for (const toolResult of toolResults) {
                 chatMessages.push({
                   role: 'tool',
                   tool_name: toolResult.name,
+                  tool_call_id: toolResult.tool_call_id, // Required for Groq tool responses
                   content: toolResult.result
                 });
               }
+              
+              console.log('[Tool Flow] About to make second API call with', chatMessages.length, 'messages');
               
               // Keep executingTools true - we'll loop and continue
               // Continue loop to get next response
@@ -1360,6 +1436,19 @@ export default function App() {
             ? { ...s, messages: [...s.messages, { role: 'assistant', content: `**Error:** ${(err as Error).message}` }] }
             : s
         ));
+      } else {
+        // On abort, clean up the placeholder assistant message that was added during streaming
+        setSessions(prev => prev.map(s => {
+          if (s.id !== currentSessionId) return s;
+          const msgs = s.messages;
+          // Remove trailing placeholder if it exists
+          if (msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant' && 
+              (msgs[msgs.length - 1].content === '...' || msgs[msgs.length - 1].content?.trim().length <= 3)) {
+            console.log('[Abort Cleanup] Removing placeholder assistant message');
+            return { ...s, messages: msgs.slice(0, -1) };
+          }
+          return s;
+        }));
       }
       setStreaming(false);
       setExecutingTools(false);

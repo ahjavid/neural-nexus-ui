@@ -1697,7 +1697,11 @@ class ToolRegistry {
     }
     
     try {
-      const result = await tool.handler(call.function.arguments);
+      // Parse arguments if they're a string (from Groq API)
+      const args = typeof call.function.arguments === 'string'
+        ? JSON.parse(call.function.arguments)
+        : call.function.arguments;
+      const result = await tool.handler(args);
       return result;
     } catch (e) {
       return `Error executing tool "${toolName}": ${(e as Error).message}`;
@@ -1706,12 +1710,14 @@ class ToolRegistry {
   
   /**
    * Execute multiple tool calls (for parallel execution)
+   * Returns tool_call_id (required for Groq API tool responses)
    */
-  async executeToolCalls(calls: ToolCall[]): Promise<Array<{ name: string; result: string }>> {
+  async executeToolCalls(calls: ToolCall[]): Promise<Array<{ name: string; result: string; tool_call_id?: string }>> {
     const results = await Promise.all(
       calls.map(async (call) => ({
         name: call.function.name,
-        result: await this.executeTool(call)
+        result: await this.executeTool(call),
+        tool_call_id: call.id  // Pass through the tool_call_id for Groq compatibility
       }))
     );
     return results;

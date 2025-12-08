@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) and [Groq](https://groq.com) - run AI models locally or blazing-fast in the cloud.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.24-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.25-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -156,7 +156,7 @@ neural-nexus-ui/
 │   │   └── ThemeContext.tsx
 │   ├── utils/            # Utility functions
 │   │   ├── documents.ts  # PDF/Word/Excel processing + chunking
-│   │   ├── groq.ts       # Groq API service (streaming, models, tools)
+│   │   ├── groq.ts       # Groq API via official groq-sdk (streaming, models)
 │   │   ├── helpers.ts    # Formatting helpers
 │   │   ├── neurosymbolic.ts # Neurosymbolic AI (entity extraction, knowledge graph, hybrid search)
 │   │   ├── storage.ts    # IndexedDB manager
@@ -395,6 +395,8 @@ In the Knowledge Base modal:
 
 Neural Nexus supports Ollama's tool calling feature, allowing the AI to use tools for enhanced capabilities.
 
+> **Note:** Tool calling is only available with **Ollama** models. Groq tool calling is disabled due to model limitations with function call formatting.
+
 ### Enabling Tools
 
 1. Open **Settings** (`Ctrl/Cmd + ,`)
@@ -410,7 +412,6 @@ Neural Nexus supports Ollama's tool calling feature, allowing the AI to use tool
 | `calculate` | Mathematical calculations | "What is 15% of 250?" |
 | `random_number` | Generate random numbers | "Give me a random number between 1 and 100" |
 | `web_search` | Search using DuckDuckGo Instant Answers | "Define machine learning" |
-| `tavily_search` | AI-powered web search with answers | "Search for Lexus LX 2025 specs" |
 | `tavily_extract` | AI-powered content extraction from URLs | "Read this article: https://example.com/post" |
 | `rag_search` | Neurosymbolic search through Knowledge Base | "Find info about authentication in my docs" |
 | `fetch_url` | Fetch content from a specific URL | "Fetch the content from https://example.com" |
@@ -582,6 +583,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📋 Changelog
 
+### v1.1.25 (January 2025)
+- **Official groq-sdk Integration** - Migrated from raw fetch to official `groq-sdk` package for better TypeScript types and error handling
+- **Tool Calling Disabled for Groq** - Removed tool calling from Groq due to model limitations (Groq models generate malformed tool calls)
+- **Code Cleanup** - Removed unused Groq types (`GroqModelList`, `GroqChatCompletionRequest`, `GroqStreamChunk`, etc.)
+- **Simplified Message Conversion** - Streamlined `convertToGroqMessages()` function with SDK types
+- **Client Caching** - Added `resetGroqClient()` for proper API key changes without refresh
+
 ### v1.1.24 (December 2025)
 - **🚀 Groq API Integration** - Added support for Groq's ultra-fast cloud inference as alternative to Ollama
 - **Dual Provider Architecture** - Seamlessly switch between Ollama (local) and Groq (cloud) in Settings
@@ -740,7 +748,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### v1.0.0 (November 2025)
 - Initial release with full feature set
 - Neurosymbolic AI search with hybrid scoring
-- Tool calling with 9 built-in tools
+- Tool calling with 10 built-in tools
 - Voice mode with speech recognition
 - Knowledge base with document processing
 - IndexedDB storage for sessions and knowledge

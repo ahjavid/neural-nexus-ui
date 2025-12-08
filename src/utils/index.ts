@@ -99,6 +99,7 @@ export {
   isGroqEnabled,
   setGroqEnabled,
   hasGroqApiKey,
+  resetGroqClient,
   // API functions
   testGroqConnection,
   listGroqModels,
@@ -108,7 +109,6 @@ export {
   chatGroq,
   // Conversion helpers
   convertToGroqMessages,
-  convertToGroqTools,
   // Constants
   GROQ_CHAT_MODELS,
   GROQ_RECOMMENDED_MODELS,
