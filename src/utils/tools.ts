@@ -1029,9 +1029,16 @@ const ragSearch: ToolHandler = async (args) => {
     let results: HybridSearchResult[] = [];
     
     if (useHybrid && cache.knowledgeGraph && cache.nodeEmbeddings) {
-      // Get query embedding function
-      const getQueryEmbedding = async (text: string) => 
-        getEmbedding(text, config.embeddingModel, config.ollamaEndpoint);
+      // Get query embedding function - use HyDE embedding if available
+      const getQueryEmbedding = async (text: string) => {
+        // If HyDE was used and this is the main query, return the pre-computed HyDE embedding
+        if (hydeEmbeddingResult?.usedHyDE && text === query) {
+          console.log('[RAG] Using HyDE embedding instead of query embedding');
+          return hydeEmbeddingResult.embedding;
+        }
+        // Otherwise compute embedding normally
+        return getEmbedding(text, config.embeddingModel, config.ollamaEndpoint);
+      };
       
       if (useEnhanced) {
         // Use ENHANCED neurosymbolic search with BM25 + RRF + MMR
