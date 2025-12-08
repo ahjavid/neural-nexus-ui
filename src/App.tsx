@@ -33,7 +33,7 @@ import {
   getPersonaRepeatConfig,
   getAdaptiveTemperature
 } from './utils/helpers';
-import { toolRegistry, clearEmbeddingCache, setConversationContext } from './utils/tools';
+import { toolRegistry, clearEmbeddingCache, setConversationContext, getToolConfigValue } from './utils/tools';
 
 // Types
 import type {
@@ -1023,6 +1023,7 @@ export default function App() {
       }
       
       // Apply context management with summary generation for trimmed messages
+      const summaryModel = getToolConfigValue('summaryModel') || selectedModel;  // Use utility model if set
       const contextResult = await manageContextWithSummary(
         enhancedSystemPrompt,
         updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images })),
@@ -1033,7 +1034,7 @@ export default function App() {
           keepLastMessages: 12   // Keep recent conversation
         },
         // Only generate summary if messages will be trimmed (check if conversation is long enough)
-        updatedMessages.length > 14 ? { endpoint, model: selectedModel } : undefined
+        updatedMessages.length > 14 ? { endpoint, model: summaryModel } : undefined
       );
       
       // Log context management info (for debugging)

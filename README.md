@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.19-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.20-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -555,6 +555,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.20 (December 2025)
+- **Utility Model Setting** - Configure a smaller/faster model for conversation summaries
+- **Improved Performance** - Summary generation uses dedicated utility model (e.g., qwen2.5:1.5b) instead of main chat model
+- **Settings UI** - New "Utility Model" selector in Tools settings with model refresh
+- **Smart Fallback** - Uses main chat model if no utility model is configured
 
 ### v1.1.19 (December 2025)
 - **Conversation Summary** - When context is trimmed in long conversations, AI generates a summary of removed messages to preserve context

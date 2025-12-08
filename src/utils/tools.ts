@@ -37,6 +37,7 @@ interface ToolConfig {
   tavilyApiKey?: string;
   ollamaEndpoint: string;
   embeddingModel: string;
+  summaryModel?: string;  // Utility model for conversation summaries (smaller/faster)
 }
 
 // Conversation context for query rewriting (injected from App)
@@ -61,7 +62,8 @@ const getToolConfig = (): ToolConfig => {
   return {
     tavilyApiKey: localStorage.getItem('nexus_tavily_api_key') || undefined,
     ollamaEndpoint: localStorage.getItem('ollama_endpoint') || 'http://localhost:11434',
-    embeddingModel: localStorage.getItem('nexus_embedding_model') || 'mxbai-embed-large:latest'
+    embeddingModel: localStorage.getItem('nexus_embedding_model') || 'mxbai-embed-large:latest',
+    summaryModel: localStorage.getItem('nexus_summary_model') || undefined
   };
 };
 
@@ -70,6 +72,8 @@ export const setToolConfig = (key: keyof ToolConfig, value: string): void => {
     localStorage.setItem('nexus_tavily_api_key', value);
   } else if (key === 'embeddingModel') {
     localStorage.setItem('nexus_embedding_model', value);
+  } else if (key === 'summaryModel') {
+    localStorage.setItem('nexus_summary_model', value);
   }
 };
 

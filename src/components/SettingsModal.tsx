@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle, Brain } from 'lucide-react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle, Brain, Zap } from 'lucide-react';
 import { Button } from './Button';
 import type { ModelParams } from '../types';
 import { formatBytes, getApiUrl } from '../utils/helpers';
@@ -70,6 +70,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showApiKey, setShowApiKey] = useState(false);
   const [embeddingModels, setEmbeddingModels] = useState<string[]>([]);
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
+  
+  // Summary model state (utility model for faster operations)
+  const [summaryModel, setSummaryModel] = useState(getToolConfigValue('summaryModel') || '');
+  const [allModels, setAllModels] = useState<string[]>([]);
+  const [loadingAllModels, setLoadingAllModels] = useState(false);
   
   // Export/Import state
   const [exportStatus, setExportStatus] = useState<'idle' | 'exporting' | 'success' | 'error'>('idle');
@@ -169,6 +174,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       fetchEmbeddingModels();
     }
   }, [toolsOpen, embeddingModels.length, fetchEmbeddingModels]);
+
+  // Fetch all models for utility model selector (excluding embedding-only models)
+  const fetchAllModels = useCallback(async () => {
+    setLoadingAllModels(true);
+    try {
+      const res = await fetch(getApiUrl(endpoint, '/api/tags'));
+      if (res.ok) {
+        const data = await res.json();
+        const allModelNames = (data.models || []).map((m: { name: string }) => m.name);
+        // Filter out embedding models (already fetched)
+        const chatModels = allModelNames.filter((name: string) => !embeddingModels.includes(name));
+        setAllModels(chatModels);
+      }
+    } catch (err) {
+      console.error('Failed to fetch models:', err);
+    } finally {
+      setLoadingAllModels(false);
+    }
+  }, [endpoint, embeddingModels]);
+
+  // Fetch all models when tools section is opened AND embedding models are loaded
+  useEffect(() => {
+    if (toolsOpen && allModels.length === 0 && !loadingEmbeddingModels && embeddingModels.length > 0) {
+      fetchAllModels();
+    }
+  }, [toolsOpen, allModels.length, fetchAllModels, loadingEmbeddingModels, embeddingModels.length]);
 
   const { theme, setTheme } = useTheme();
 
@@ -453,6 +484,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         ? `${embeddingModels.length} embedding model${embeddingModels.length > 1 ? 's' : ''} available`
                         : 'Click refresh to load embedding models from Ollama'
                       }
+                    </p>
+                  </div>
+                  
+                  {/* Summary/Utility Model */}
+                  <div className="p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap size={14} className="text-cyan-400" />
+                        <span className="text-xs font-medium text-theme-text-secondary">Utility Model (Summaries)</span>
+                      </div>
+                      <button
+                        onClick={fetchAllModels}
+                        disabled={loadingAllModels}
+                        className="text-theme-text-muted hover:text-cyan-400 transition-colors disabled:opacity-50"
+                        title="Refresh models"
+                      >
+                        {loadingAllModels ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <RefreshCw size={14} />
+                        )}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <select
+                        value={summaryModel}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setSummaryModel(value);
+                          setToolConfig('summaryModel', value);
+                        }}
+                        className="w-full bg-theme-bg-secondary border border-theme-border-secondary rounded px-2 py-1.5 text-xs font-mono text-theme-text-secondary focus:border-cyan-500 focus:outline-none appearance-none cursor-pointer pr-8"
+                      >
+                        <option value="">Use main chat model</option>
+                        {allModels.map((model) => (
+                          <option key={model} value={model}>
+                            {model}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-text-muted pointer-events-none" />
+                    </div>
+                    <p className="text-[10px] text-theme-text-muted">
+                      Smaller/faster model for conversation summaries. Recommended: qwen2.5:1.5b, llama3.2:1b, or gemma2:2b
                     </p>
                   </div>
                 </>
