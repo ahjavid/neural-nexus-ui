@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.22-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.23-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -555,6 +555,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.23 (December 2025)
+- **HyDE (Hypothetical Document Embedding)** - Generate ideal answer docs for better semantic matching on vague queries
+- **RAG Search Parameter** - Added `use_hyde` option (opt-in, uses utility model)
+- **HyDE Functions** - `generateHypotheticalDocument()` and `getHyDEEmbedding()` in neurosymbolic.ts
 
 ### v1.1.22 (December 2025)
 - **Structured Output for Summaries** - Uses Ollama's JSON Schema format for guaranteed valid JSON responses

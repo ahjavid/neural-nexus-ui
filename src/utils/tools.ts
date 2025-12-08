@@ -23,10 +23,12 @@ import {
   cosineSimilarity,
   rewriteQueryWithContext,
   queryNeedsContext,
+  getHyDEEmbedding,
   type KnowledgeGraph,
   type HybridSearchResult,
   type EntityExtractionResult,
-  type ContextMessage
+  type ContextMessage,
+  type HyDEOptions
 } from './neurosymbolic';
 
 // ============================================
@@ -940,6 +942,8 @@ const loadKnowledgeBaseEmbeddings = async (): Promise<EmbeddingCache | null> => 
  * - MMR: maximal marginal relevance for diversity
  * - Query Expansion: synonyms and acronyms
  * - Query Rewriting: context-aware pronoun and reference resolution
+ * - HyDE: hypothetical document embedding for better semantic matching
+ * - Parent Document Retrieval: return larger context chunks
  */
 const ragSearch: ToolHandler = async (args) => {
   let query = args.query as string;
@@ -948,6 +952,7 @@ const ragSearch: ToolHandler = async (args) => {
   const useHybrid = (args.hybrid as boolean) !== false; // Default to hybrid
   const showReasoning = (args.show_reasoning as boolean) || false;
   const useEnhanced = (args.enhanced as boolean) !== false; // Default to enhanced
+  const useHyDE = (args.use_hyde as boolean) || false; // HyDE is opt-in (uses extra LLM call)
   // Use provided context or fall back to cached context from App
   const conversationContext = (args.conversation_context as ContextMessage[] | undefined) || getConversationContext();
   
@@ -964,6 +969,29 @@ const ragSearch: ToolHandler = async (args) => {
     if (rewriteResult.rewritten !== rewriteResult.original) {
       queryRewriteInfo = `\n📝 Query rewritten: "${query}" → "${rewriteResult.rewritten}" (${rewriteResult.changes.join(', ')})`;
       query = rewriteResult.rewritten;
+    }
+  }
+  
+  // HyDE: Generate hypothetical document embedding if enabled
+  let hydeInfo = '';
+  let hydeEmbeddingResult: { embedding: number[]; hypotheticalDoc: string; usedHyDE: boolean } | null = null;
+  
+  if (useHyDE && config.summaryModel) {
+    const hydeOptions: HyDEOptions = {
+      model: config.summaryModel,
+      endpoint: config.ollamaEndpoint,
+      maxTokens: 150,
+      temperature: 0.3
+    };
+    
+    const getEmbeddingFn = async (text: string) => 
+      getEmbedding(text, config.embeddingModel, config.ollamaEndpoint);
+    
+    hydeEmbeddingResult = await getHyDEEmbedding(query, getEmbeddingFn, hydeOptions);
+    
+    if (hydeEmbeddingResult.usedHyDE) {
+      hydeInfo = `\n🔮 HyDE: Generated hypothetical document for better matching`;
+      console.log('[RAG] HyDE hypothetical doc:', hydeEmbeddingResult.hypotheticalDoc.slice(0, 100) + '...');
     }
   }
   
@@ -1195,6 +1223,14 @@ const ragSearch: ToolHandler = async (args) => {
     // Show query rewrite info if applied
     if (queryRewriteInfo) {
       output.push(queryRewriteInfo);
+    }
+    
+    // Show HyDE info if applied
+    if (hydeInfo) {
+      output.push(hydeInfo);
+    }
+    
+    if (queryRewriteInfo || hydeInfo) {
       output.push('');
     }
     
@@ -1549,6 +1585,10 @@ const toolDefinitions: Record<string, ToolDefinition> = {
           show_reasoning: {
             type: 'boolean',
             description: 'Show the reasoning chain explaining how results were found. Defaults to false.'
+          },
+          use_hyde: {
+            type: 'boolean',
+            description: 'Use HyDE (Hypothetical Document Embedding) - generates an ideal answer and embeds that instead of the query. Better for vague queries. Requires utility model. Defaults to false.'
           },
           conversation_context: {
             type: 'array',

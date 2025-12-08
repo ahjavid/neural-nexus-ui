@@ -2175,6 +2175,138 @@ export const addAcronym = (acronym: string, expansion: string): void => {
 };
 
 // ============================================
+// HyDE: Hypothetical Document Embedding
+// ============================================
+
+/**
+ * HyDE configuration options
+ */
+export interface HyDEOptions {
+  /** Model to use for generating hypothetical document */
+  model?: string;
+  /** Ollama endpoint */
+  endpoint?: string;
+  /** Maximum tokens for the hypothetical document */
+  maxTokens?: number;
+  /** Temperature for generation (lower = more focused) */
+  temperature?: number;
+  /** Custom prompt template (use {query} placeholder) */
+  promptTemplate?: string;
+}
+
+const DEFAULT_HYDE_OPTIONS: Required<Omit<HyDEOptions, 'model' | 'endpoint'>> = {
+  maxTokens: 200,
+  temperature: 0.3,
+  promptTemplate: `Given the question below, write a short passage that would directly answer it. 
+Write as if you are providing factual information from a document.
+
+Question: {query}
+
+Answer passage:`
+};
+
+/**
+ * Generate a hypothetical document that would answer the query.
+ * The hypothetical document is then embedded instead of the query,
+ * which often produces better semantic matches.
+ * 
+ * This is the HyDE (Hypothetical Document Embedding) technique from:
+ * "Precise Zero-Shot Dense Retrieval without Relevance Labels" (Gao et al., 2022)
+ * 
+ * @param query - The user's search query
+ * @param options - HyDE configuration
+ * @returns The hypothetical document text
+ */
+export const generateHypotheticalDocument = async (
+  query: string,
+  options: HyDEOptions = {}
+): Promise<string> => {
+  const { model, endpoint } = options;
+  
+  if (!model || !endpoint) {
+    console.warn('[HyDE] Model or endpoint not configured, returning original query');
+    return query;
+  }
+  
+  const opts = { ...DEFAULT_HYDE_OPTIONS, ...options };
+  const prompt = opts.promptTemplate.replace('{query}', query);
+  
+  try {
+    const response = await fetch(`${endpoint}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        keep_alive: '0', // Immediately unload (utility model)
+        options: {
+          temperature: opts.temperature,
+          num_predict: opts.maxTokens,
+          num_ctx: 1024 // Small context for fast generation
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      console.warn('[HyDE] Failed to generate hypothetical document:', response.status);
+      return query;
+    }
+    
+    const data = await response.json();
+    const hypotheticalDoc = data.response?.trim() || query;
+    
+    console.log('[HyDE] Generated hypothetical document:', hypotheticalDoc.slice(0, 100) + '...');
+    return hypotheticalDoc;
+  } catch (error) {
+    console.warn('[HyDE] Error generating hypothetical document:', error);
+    return query;
+  }
+};
+
+/**
+ * Perform HyDE-enhanced embedding: generate hypothetical doc then embed it.
+ * Falls back to embedding the original query on error.
+ * 
+ * @param query - The user's search query
+ * @param getEmbedding - Function to generate embeddings
+ * @param hydeOptions - HyDE configuration
+ * @returns Embedding of the hypothetical document (or original query on fallback)
+ */
+export const getHyDEEmbedding = async (
+  query: string,
+  getEmbedding: (text: string) => Promise<number[]>,
+  hydeOptions?: HyDEOptions
+): Promise<{ embedding: number[]; hypotheticalDoc: string; usedHyDE: boolean }> => {
+  // Skip HyDE for very short or simple queries
+  if (query.length < 20 || !hydeOptions?.model) {
+    return {
+      embedding: await getEmbedding(query),
+      hypotheticalDoc: query,
+      usedHyDE: false
+    };
+  }
+  
+  try {
+    const hypotheticalDoc = await generateHypotheticalDocument(query, hydeOptions);
+    const embedding = await getEmbedding(hypotheticalDoc);
+    
+    return {
+      embedding,
+      hypotheticalDoc,
+      usedHyDE: hypotheticalDoc !== query
+    };
+  } catch (error) {
+    console.warn('[HyDE] Falling back to original query embedding:', error);
+    return {
+      embedding: await getEmbedding(query),
+      hypotheticalDoc: query,
+      usedHyDE: false
+    };
+  }
+};
+
+// ============================================
 // Query Rewriting with Conversation Context
 // ============================================
 
