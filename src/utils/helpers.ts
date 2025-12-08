@@ -301,6 +301,155 @@ export const manageContext = (
   };
 };
 
+// ============================================================================
+// CONVERSATION SUMMARY
+// ============================================================================
+
+/**
+ * Configuration for conversation summary generation
+ */
+export interface SummaryConfig {
+  endpoint: string;
+  model: string;
+  maxSummaryTokens?: number;
+}
+
+/**
+ * Result of context management with optional summary
+ */
+export interface EnhancedContextResult extends ContextResult {
+  trimmedMessages?: Array<{ role: string; content: string }>;
+  summary?: string;
+}
+
+/**
+ * Generate a summary of conversation messages using the LLM.
+ * Used when context needs to be trimmed to preserve important context.
+ * 
+ * @param messages - Messages to summarize
+ * @param config - Summary configuration (endpoint, model)
+ * @returns Promise<string> - The generated summary
+ */
+export const generateConversationSummary = async (
+  messages: Array<{ role: string; content: string }>,
+  config: SummaryConfig
+): Promise<string> => {
+  const { endpoint, model, maxSummaryTokens = 200 } = config;
+  
+  if (messages.length === 0) return '';
+  
+  // Format messages for summarization
+  const conversationText = messages
+    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 500)}${m.content.length > 500 ? '...' : ''}`)
+    .join('\n\n');
+  
+  const summaryPrompt = `Summarize this conversation excerpt in 2-3 concise sentences. Focus on:
+- Key topics discussed
+- Important decisions or conclusions
+- Any specific requests or context that should be remembered
+
+Conversation:
+${conversationText}
+
+Summary (be brief and factual):`;
+
+  try {
+    const response = await fetch(getApiUrl(endpoint, '/api/generate'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        prompt: summaryPrompt,
+        stream: false,
+        options: {
+          temperature: 0.3,  // Low temp for factual summary
+          num_predict: maxSummaryTokens,
+          num_ctx: 2048  // Small context for fast summary
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      console.warn('[Summary] Failed to generate summary:', response.status);
+      return '';
+    }
+    
+    const data = await response.json();
+    const summary = data.response?.trim() || '';
+    
+    console.log('[Conversation Summary] Generated:', summary.slice(0, 100) + '...');
+    return summary;
+  } catch (error) {
+    console.warn('[Summary] Error generating summary:', error);
+    return '';
+  }
+};
+
+/**
+ * Enhanced context management that generates a summary of trimmed messages.
+ * Call this instead of manageContext when you want summaries.
+ * 
+ * @param systemPrompt - The system prompt
+ * @param messages - All conversation messages
+ * @param config - Context configuration
+ * @param summaryConfig - Optional config for summary generation (if provided, summaries are enabled)
+ * @returns Promise<EnhancedContextResult>
+ */
+export const manageContextWithSummary = async (
+  systemPrompt: string,
+  messages: Array<{ role: string; content: string; images?: string[] }>,
+  config: Partial<ContextConfig> = {},
+  summaryConfig?: SummaryConfig
+): Promise<EnhancedContextResult> => {
+  // First, do basic context management
+  const basicResult = manageContext(systemPrompt, messages, config);
+  
+  // If no trimming happened or no summary config, return basic result
+  if (basicResult.trimmedCount === 0 || !summaryConfig) {
+    return basicResult;
+  }
+  
+  // Identify which messages were trimmed (the middle section)
+  const {
+    keepFirstMessages = 2,
+    keepLastMessages = 10
+  } = config;
+  
+  const firstCount = Math.min(keepFirstMessages, messages.length);
+  const lastCount = Math.min(keepLastMessages, messages.length);
+  const lastStartIdx = messages.length - lastCount;
+  
+  // Trimmed messages are those in the middle (after first N, before last M)
+  const trimmedMessages: Array<{ role: string; content: string }> = [];
+  for (let i = firstCount; i < lastStartIdx; i++) {
+    trimmedMessages.push({
+      role: messages[i].role,
+      content: messages[i].content
+    });
+  }
+  
+  // Generate summary of trimmed messages
+  let summary = '';
+  if (trimmedMessages.length > 0) {
+    summary = await generateConversationSummary(trimmedMessages, summaryConfig);
+  }
+  
+  return {
+    ...basicResult,
+    trimmedMessages,
+    summary
+  };
+};
+
+/**
+ * Format a conversation summary as a system message injection.
+ * This can be prepended to the context to preserve important info.
+ */
+export const formatSummaryAsContext = (summary: string): string => {
+  if (!summary) return '';
+  return `\n\n**Earlier in this conversation (summary):**\n${summary}`;
+};
+
 /**
  * Format token count for display
  */

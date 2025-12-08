@@ -25,7 +25,8 @@ import { processDocument } from './utils/documents';
 import { 
   formatFileSize, 
   getApiUrl, 
-  manageContext, 
+  manageContextWithSummary,
+  formatSummaryAsContext,
   estimateTokens, 
   formatTokenCount,
   calculateDynamicRepeatPenalty,
@@ -1021,8 +1022,8 @@ export default function App() {
         enhancedSystemPrompt += kbContext;
       }
       
-      // Apply context management - trim messages if context is too large
-      const contextResult = manageContext(
+      // Apply context management with summary generation for trimmed messages
+      const contextResult = await manageContextWithSummary(
         enhancedSystemPrompt,
         updatedMessages.map(m => ({ role: m.role, content: m.content, images: m.images })),
         {
@@ -1030,17 +1031,28 @@ export default function App() {
           reserveForResponse: params.num_predict, // Reserve for response
           keepFirstMessages: 2,  // Keep initial context
           keepLastMessages: 12   // Keep recent conversation
-        }
+        },
+        // Only generate summary if messages will be trimmed (check if conversation is long enough)
+        updatedMessages.length > 14 ? { endpoint, model: selectedModel } : undefined
       );
       
       // Log context management info (for debugging)
       if (contextResult.trimmedCount > 0) {
-        console.log(`Context management: Trimmed ${contextResult.trimmedCount} messages to fit context window`);
+        console.log(`[Context Management] Trimmed ${contextResult.trimmedCount} messages`);
+        if (contextResult.summary) {
+          console.log(`[Conversation Summary] Preserving context from trimmed messages`);
+        }
+      }
+      
+      // If we have a summary, inject it into the system prompt to preserve context
+      let finalSystemPrompt = enhancedSystemPrompt;
+      if (contextResult.summary) {
+        finalSystemPrompt += formatSummaryAsContext(contextResult.summary);
       }
       
       // Build chat messages for API with managed context
       let chatMessages: Array<{ role: string; content: string; images?: string[]; tool_calls?: ToolCall[]; tool_name?: string }> = [
-        { role: 'system', content: enhancedSystemPrompt },
+        { role: 'system', content: finalSystemPrompt },
         ...contextResult.messages
       ];
       

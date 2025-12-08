@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.18-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.19-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -555,6 +555,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.19 (December 2025)
+- **Conversation Summary** - When context is trimmed in long conversations, AI generates a summary of removed messages to preserve context
+- **Smart Summary Injection** - Summary is automatically added to system prompt to maintain conversation continuity
+- **Context Preservation** - Key topics, decisions, and requests from earlier messages are retained even when trimmed
+- **Async Summary Generation** - Uses LLM to create concise 2-3 sentence summaries without blocking UI
 
 ### v1.1.18 (December 2025)
 - **Dynamic Temperature by Query Type** - Automatically adjusts temperature based on query: lower for code/facts, higher for creative tasks
