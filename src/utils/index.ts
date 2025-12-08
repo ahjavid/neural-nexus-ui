@@ -56,7 +56,6 @@ export {
   reciprocalRankFusion,
   fuseWithRRF,
   mmrRerank,
-  diversityFilter,
   enhancedHybridSearch,
   // Query expansion
   expandQuery,

@@ -1464,49 +1464,6 @@ const computeMMRWithoutEmbedding = (
   return lambda * relevance - (1 - lambda) * maxSimToSelected;
 };
 
-/**
- * Quick diversity filter - removes near-duplicate results
- */
-export const diversityFilter = (
-  results: MMRItem[],
-  embeddings: Map<string, number[]>,
-  threshold: number = 0.9
-): MMRItem[] => {
-  const filtered: MMRItem[] = [];
-
-  for (const result of results) {
-    const resultEmb = embeddings.get(result.id) || result.embedding;
-    let isDuplicate = false;
-
-    for (const kept of filtered) {
-      const keptEmb = embeddings.get(kept.id) || kept.embedding;
-      
-      if (resultEmb && keptEmb) {
-        const sim = cosineSimilarity(resultEmb, keptEmb);
-        if (sim > threshold) {
-          isDuplicate = true;
-          break;
-        }
-      } else {
-        // Fallback to content-based similarity
-        const resultWords = new Set(result.content.toLowerCase().split(/\s+/));
-        const keptWords = new Set(kept.content.toLowerCase().split(/\s+/));
-        const sim = jaccardSimilarity(resultWords, keptWords);
-        if (sim > threshold) {
-          isDuplicate = true;
-          break;
-        }
-      }
-    }
-
-    if (!isDuplicate) {
-      filtered.push(result);
-    }
-  }
-
-  return filtered;
-};
-
 // ============================================
 // Enhanced Hybrid Search with BM25, RRF & MMR
 // ============================================
