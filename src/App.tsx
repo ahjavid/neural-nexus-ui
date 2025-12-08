@@ -29,7 +29,8 @@ import {
   estimateTokens, 
   formatTokenCount,
   calculateDynamicRepeatPenalty,
-  getPersonaRepeatConfig
+  getPersonaRepeatConfig,
+  getAdaptiveTemperature
 } from './utils/helpers';
 import { toolRegistry, clearEmbeddingCache, setConversationContext } from './utils/tools';
 
@@ -768,8 +769,22 @@ export default function App() {
       console.log('[Thinking Mode] Extended reasoning enabled for this request');
     }
 
+    // Calculate adaptive temperature based on the latest user query
+    const latestUserMessage = chatMessages.filter(m => m.role === 'user').pop();
+    const userQuery = latestUserMessage?.content || '';
+    const adaptiveTemp = getAdaptiveTemperature(userQuery, params.temperature, persona);
+    
+    if (adaptiveTemp.adjusted) {
+      console.log('[Adaptive Temperature]', {
+        queryType: adaptiveTemp.queryType,
+        base: params.temperature,
+        adjusted: adaptiveTemp.temperature.toFixed(2),
+        persona
+      });
+    }
+
     const options = {
-      temperature: params.temperature,
+      temperature: adaptiveTemp.temperature,
       top_k: params.top_k,
       top_p: params.top_p,
       repeat_penalty: dynamicRepeatPenalty,

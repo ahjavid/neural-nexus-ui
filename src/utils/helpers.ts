@@ -309,6 +309,110 @@ export const formatTokenCount = (tokens: number): string => {
   return `${(tokens / 1000).toFixed(1)}k`;
 };
 
+// ============================================================================
+// DYNAMIC TEMPERATURE ADJUSTMENT
+// ============================================================================
+
+/**
+ * Query type detection for temperature adjustment
+ */
+export type QueryType = 'factual' | 'creative' | 'code' | 'analytical' | 'general';
+
+/**
+ * Detect the type of query to adjust temperature accordingly.
+ * @param query - The user's query text
+ * @returns The detected query type
+ */
+export const detectQueryType = (query: string): QueryType => {
+  const lowerQuery = query.toLowerCase();
+  
+  // Code-related queries (lowest temperature for precision)
+  if (/\b(code|function|implement|debug|fix|error|bug|syntax|compile|refactor|optimize|algorithm|api|class|method|variable|import|export|async|await|promise|loop|array|object|string|number|boolean|type|interface)\b/i.test(lowerQuery) ||
+      /```|\.(js|ts|py|java|cpp|go|rs|rb|php|swift|kt|cs)\b/.test(query)) {
+    return 'code';
+  }
+  
+  // Factual/precise queries (low temperature)
+  if (/\b(how (many|much)|what is|who is|when (did|was|is)|where (is|are)|define|exact|precise|calculate|convert|specific|correct|accurate|true|false|fact|date|number|amount|price|cost|total|sum|average|percentage|ratio)\b/i.test(lowerQuery)) {
+    return 'factual';
+  }
+  
+  // Analytical queries (medium-low temperature)
+  if (/\b(analyze|compare|contrast|evaluate|assess|review|examine|investigate|breakdown|pros and cons|advantages|disadvantages|differences?|similarities?|versus|vs\.?|better|worse|recommend|should i|which one)\b/i.test(lowerQuery)) {
+    return 'analytical';
+  }
+  
+  // Creative queries (high temperature)
+  if (/\b(write|create|imagine|story|poem|creative|brainstorm|ideas?|suggest|invent|design|compose|draft|generate|fiction|narrative|character|plot|dialogue|describe|paint a picture|come up with)\b/i.test(lowerQuery)) {
+    return 'creative';
+  }
+  
+  return 'general';
+};
+
+/**
+ * Calculate adaptive temperature based on query type and base temperature.
+ * Adjusts the temperature to be more appropriate for the type of task.
+ * 
+ * @param query - The user's query text
+ * @param baseTemperature - The persona's base temperature setting
+ * @param persona - Optional persona type for additional context
+ * @returns Adjusted temperature value
+ */
+export const getAdaptiveTemperature = (
+  query: string,
+  baseTemperature: number,
+  persona?: string
+): { temperature: number; queryType: QueryType; adjusted: boolean } => {
+  const queryType = detectQueryType(query);
+  
+  // Temperature ranges by query type
+  const tempRanges: Record<QueryType, { min: number; max: number; target: number }> = {
+    code: { min: 0.1, max: 0.3, target: 0.2 },
+    factual: { min: 0.2, max: 0.4, target: 0.3 },
+    analytical: { min: 0.3, max: 0.5, target: 0.4 },
+    creative: { min: 0.7, max: 1.0, target: 0.85 },
+    general: { min: 0.5, max: 0.8, target: 0.7 }
+  };
+  
+  const range = tempRanges[queryType];
+  let adjustedTemp = baseTemperature;
+  let adjusted = false;
+  
+  // Only adjust if base temperature is outside the ideal range for query type
+  if (queryType === 'code' || queryType === 'factual') {
+    // For precise tasks, cap temperature at max
+    if (baseTemperature > range.max) {
+      adjustedTemp = range.target;
+      adjusted = true;
+    }
+  } else if (queryType === 'creative') {
+    // For creative tasks, ensure minimum temperature
+    if (baseTemperature < range.min) {
+      adjustedTemp = range.target;
+      adjusted = true;
+    }
+  } else if (queryType === 'analytical') {
+    // For analytical, prefer middle ground
+    if (baseTemperature > range.max) {
+      adjustedTemp = range.target;
+      adjusted = true;
+    }
+  }
+  
+  // Persona overrides: coder should stay low even for "creative" code generation
+  if (persona === 'coder' && adjustedTemp > 0.4) {
+    adjustedTemp = Math.min(adjustedTemp, 0.3);
+    adjusted = true;
+  }
+  
+  return {
+    temperature: adjustedTemp,
+    queryType,
+    adjusted
+  };
+};
+
 /**
  * Get context usage percentage and status
  */

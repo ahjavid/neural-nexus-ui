@@ -1303,7 +1303,22 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     type: 'function',
     function: {
       name: 'web_search',
-      description: 'Search the PUBLIC WEB for current information, news, facts, product details, or any general knowledge topic. Uses Tavily AI search if API key is configured (better results), otherwise falls back to DuckDuckGo. DO NOT use this for searching the user\'s personal/uploaded documents - use rag_search instead.',
+      description: `Search the PUBLIC WEB for current information using Tavily AI or DuckDuckGo.
+
+**WHEN TO USE:**
+- Current events, news, recent developments
+- Product information, prices, specifications
+- Facts that may have changed recently
+- Information you're uncertain about
+- Questions starting with "What is the latest...", "Current...", "Recent..."
+
+**WHEN NOT TO USE:**
+- User's personal documents (use rag_search instead)
+- Basic knowledge you're confident about
+- Coding syntax or language features (answer directly)
+- Creative writing tasks
+
+**TIP:** Be specific in queries. Include product names, dates, or key terms.`,
       parameters: {
         type: 'object',
         required: ['query'],
@@ -1330,7 +1345,20 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     type: 'function',
     function: {
       name: 'tavily_extract',
-      description: 'Extract clean, structured content from web pages using Tavily AI-powered extraction. Better than basic URL fetching - removes ads, navigation, and clutter to return the main content in markdown format. Ideal for: reading articles, documentation pages, blog posts, news articles. Requires Tavily API key configured in Settings.',
+      description: `Extract clean, structured content from web pages using Tavily AI-powered extraction.
+
+**WHEN TO USE:**
+- User provides a URL and asks to read/summarize it
+- Need to analyze content from a specific webpage
+- Reading documentation, articles, or blog posts from URLs
+- User says "read this", "summarize this page", "what does this article say"
+
+**WHEN NOT TO USE:**
+- Searching for information (use web_search first to find URLs)
+- User's uploaded documents (use rag_search)
+- No Tavily API key configured (will fail)
+
+**OUTPUT:** Clean markdown with ads/navigation removed. Better than fetch_url for articles.`,
       parameters: {
         type: 'object',
         required: ['urls'],
@@ -1381,7 +1409,22 @@ const toolDefinitions: Record<string, ToolDefinition> = {
     type: 'function',
     function: {
       name: 'rag_search',
-      description: 'Search through the USER\'S PERSONAL knowledge base using Enhanced Neurosymbolic AI - combines neural embeddings with symbolic reasoning (entity matching, keyword analysis, knowledge graph), BM25 sparse retrieval, Reciprocal Rank Fusion (RRF), and Maximal Marginal Relevance (MMR) for diverse results. Supports query expansion with synonyms and context-aware query rewriting. ALWAYS use this tool FIRST when the user asks about: their documents, files, uploads, notes, "my documents", personal data like bank statements, receipts, invoices, or any content they have added.',
+      description: `Search through the USER'S PERSONAL knowledge base using Enhanced Neurosymbolic AI.
+
+**WHEN TO USE (ALWAYS use this FIRST for these):**
+- User asks about "my documents", "my files", "my notes"
+- Questions about uploaded content: bank statements, receipts, invoices, reports
+- References to "the document", "the file I uploaded", "my data"
+- Any question about personal/private information the user has added
+- User says "search my...", "find in my...", "look up in my..."
+
+**WHEN NOT TO USE:**
+- General knowledge questions (use your knowledge or web_search)
+- Current events or news (use web_search)
+- Coding help or explanations (answer directly)
+- Questions that don't reference user's personal data
+
+**CAPABILITIES:** Neural embeddings + symbolic reasoning, entity matching, BM25, query expansion, context-aware rewriting.`,
       parameters: {
         type: 'object',
         required: ['query'],

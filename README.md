@@ -2,7 +2,7 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) - run AI models locally with style.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.17-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.18-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
@@ -555,6 +555,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SheetJS](https://sheetjs.com/) - Excel spreadsheet parsing
 
 ## 📋 Changelog
+
+### v1.1.18 (December 2025)
+- **Dynamic Temperature by Query Type** - Automatically adjusts temperature based on query: lower for code/facts, higher for creative tasks
+- **Enhanced Tool Descriptions** - Tools now include WHEN TO USE / WHEN NOT TO USE guidance for better AI decision-making
+- **Few-Shot Examples in Personas** - Each persona (Default, Coder, Writer, Analyst) now includes example interactions
+- **Query Type Detection** - Detects code, factual, analytical, creative, or general queries to optimize responses
+- **Improved RAG/Search Tool Selection** - Clearer guidance helps AI choose between rag_search, web_search, and tavily_extract
 
 ### v1.1.17 (December 2025)
 - **Tavily Extract Tool** - AI-powered content extraction from web pages (cleaner than basic fetch, removes ads/navigation/clutter)
