@@ -248,32 +248,6 @@ export const extractKeywords = (text: string, maxKeywords: number = 20): string[
 };
 
 /**
- * Extract N-grams (phrases) from text
- */
-export const extractPhrases = (text: string, n: number = 2): string[] => {
-  const words = text.toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 0);
-  
-  const phrases: Map<string, number> = new Map();
-  
-  for (let i = 0; i <= words.length - n; i++) {
-    const phrase = words.slice(i, i + n).join(' ');
-    // Skip if contains only stopwords
-    const phraseWords = phrase.split(' ');
-    if (phraseWords.every(w => STOPWORDS.has(w))) continue;
-    phrases.set(phrase, (phrases.get(phrase) || 0) + 1);
-  }
-  
-  return Array.from(phrases.entries())
-    .filter(([, count]) => count > 1)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([phrase]) => phrase);
-};
-
-/**
  * Main entity extraction function
  */
 export const extractEntities = (text: string): EntityExtractionResult => {

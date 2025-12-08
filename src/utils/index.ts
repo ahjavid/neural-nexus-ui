@@ -44,7 +44,6 @@ export {
   // Core functions
   extractEntities,
   extractKeywords,
-  extractPhrases,
   createKnowledgeGraph,
   hybridSearch,
   buildReasoningChain,
