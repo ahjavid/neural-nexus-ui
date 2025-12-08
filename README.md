@@ -66,7 +66,7 @@ npm run dev
 
 ## 🛠️ Configuration
 
-### Ollama Setup
+### Ollama Setup (Local)
 
 Make sure Ollama is running:
 
@@ -84,9 +84,22 @@ ollama pull deepseek-r1:8b
 
 The UI will auto-detect available models.
 
+### Groq Setup (Cloud)
+
+For blazing-fast cloud inference (100-500+ tokens/sec):
+
+1. Get a free API key at [console.groq.com](https://console.groq.com)
+2. Open **Settings** (`Ctrl/Cmd + ,`)
+3. Switch to **Groq** provider tab
+4. Enter your API key and click **Test**
+5. Select from available models (Llama 4, Qwen 3, etc.)
+
 ### Environment
 
-The app connects to Ollama at `http://localhost:11434` by default. You can change this in the Settings panel.
+| Provider | Endpoint | Notes |
+|----------|----------|-------|
+| **Ollama** | `http://localhost:11434` | Local, configurable in Settings |
+| **Groq** | `https://api.groq.com/openai/v1` | Cloud, requires API key |
 
 ## 🎨 Themes
 
@@ -135,34 +148,42 @@ neural-nexus-ui/
 │   │   ├── PersonaSelector.tsx
 │   │   ├── SettingsModal.tsx
 │   │   ├── Sidebar.tsx
+│   │   ├── Tooltip.tsx
 │   │   ├── VoiceModeOverlay.tsx
 │   │   ├── WelcomeScreen.tsx
 │   │   └── index.ts
+│   ├── contexts/         # React contexts
+│   │   └── ThemeContext.tsx
 │   ├── utils/            # Utility functions
 │   │   ├── documents.ts  # PDF/Word/Excel processing + chunking
+│   │   ├── groq.ts       # Groq API service (streaming, models, tools)
 │   │   ├── helpers.ts    # Formatting helpers
 │   │   ├── neurosymbolic.ts # Neurosymbolic AI (entity extraction, knowledge graph, hybrid search)
 │   │   ├── storage.ts    # IndexedDB manager
 │   │   ├── tools.ts      # Tool registry and handlers
 │   │   └── index.ts
 │   ├── types/            # TypeScript types
-│   │   └── index.ts
+│   │   ├── index.ts      # Core type definitions
+│   │   └── speech.d.ts   # Web Speech API types
 │   ├── __tests__/        # Test files
 │   │   ├── Button.test.tsx
 │   │   ├── helpers.test.ts
 │   │   ├── HelpModal.test.tsx
 │   │   └── setup.ts
-│   ├── App.jsx           # Main application component
-│   ├── main.jsx          # React entry point
+│   ├── App.tsx           # Main application component
+│   ├── main.tsx          # React entry point
+│   ├── vite-env.d.ts     # Vite type declarations
 │   └── index.css         # Global styles & Tailwind
-├── .nvmrc                # Node version (20)
-├── .env.example          # Environment template
+├── .github/
+│   └── copilot-instructions.md  # GitHub Copilot context
+├── assets/               # Screenshots and media
 ├── index.html            # HTML template
 ├── tsconfig.json         # TypeScript configuration
+├── tsconfig.node.json    # Node TypeScript config
 ├── vitest.config.ts      # Test configuration
 ├── vite.config.js        # Vite configuration (includes proxy)
-├── tailwind.config.js    # Tailwind configuration
-├── postcss.config.js     # PostCSS configuration
+├── tailwind.config.cjs   # Tailwind configuration
+├── postcss.config.cjs    # PostCSS configuration
 └── package.json          # Dependencies & scripts
 ```
 
@@ -197,15 +218,19 @@ npm run preview
 
 Access these in Settings → Advanced:
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| Temperature | Creativity (0-2) | 0.7 |
-| Top K | Token selection pool | 40 |
-| Top P | Nucleus sampling | 0.9 |
-| Repeat Penalty | Reduce repetition | 1.1 |
-| Context Length | Token memory | 4096 |
-| Max Tokens | Response length | 2048 |
-| Mirostat | Perplexity control | Off |
+| Parameter | Description | Default | Groq Support |
+|-----------|-------------|---------|---------------|
+| Temperature | Creativity (0-2) | 0.7 | ✅ |
+| Top K | Token selection pool | 40 | ❌ Ollama only |
+| Top P | Nucleus sampling | 0.9 | ✅ |
+| Repeat Penalty | Reduce repetition | 1.1 | ❌ Ollama only |
+| Context Length | Token memory | 4096 | ❌ Ollama only |
+| Max Tokens | Response length | 2048 | ✅ |
+| Mirostat | Perplexity control | Off | ❌ Ollama only |
+| Seed | Deterministic output | - | ✅ |
+| Stop Sequences | Stop generation | - | ✅ |
+
+> **Note:** When using Groq, only supported parameters are sent. Ollama-specific parameters are ignored.
 
 ## 🧠 Memory & Context
 
@@ -548,6 +573,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - [Ollama](https://ollama.ai) - Local LLM runtime
+- [Groq](https://groq.com) - Ultra-fast cloud inference
 - [React](https://react.dev) - UI framework
 - [Vite](https://vitejs.dev) - Build tool
 - [Tailwind CSS](https://tailwindcss.com) - Styling
