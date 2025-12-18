@@ -13,11 +13,13 @@ import {
   DownloadCloud,
   SearchX,
   Cloud,
-  Server
+  Server,
+  Users,
+  Bot
 } from 'lucide-react';
 import { Button } from './Button';
 import { Tooltip } from './Tooltip';
-import type { Session, Model, ApiProvider } from '../types';
+import type { Session, Model, ApiProvider, PeerReviewConfig } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -38,6 +40,9 @@ interface SidebarProps {
   onOpenHelp: () => void;
   onOpenSettings: () => void;
   apiProvider?: ApiProvider;
+  // Agentic mode props
+  agenticConfig?: PeerReviewConfig;
+  onAgentModelChange?: (agentIdx: number, model: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -58,7 +63,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenKnowledge,
   onOpenHelp,
   onOpenSettings,
-  apiProvider = 'ollama'
+  apiProvider = 'ollama',
+  agenticConfig,
+  onAgentModelChange
 }) => {
   const filteredSessions = sessions.filter(s =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -229,39 +236,77 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer */}
       <div className="p-3 sm:p-4 border-t border-theme-border-primary bg-theme-bg-primary space-y-3 min-w-[280px] sm:min-w-[320px] safe-area-bottom">
-        <div>
-          <div className="flex justify-between items-center mb-1.5">
-            <div className="flex items-center gap-1.5">
-              {apiProvider === 'groq' ? (
-                <Cloud size={12} className="text-purple-400" />
-              ) : (
-                <Server size={12} className="text-indigo-400" />
-              )}
-              <label className="text-[10px] uppercase font-bold text-theme-text-muted">
-                {apiProvider === 'groq' ? 'Groq Model' : 'Ollama Model'}
-              </label>
+        {/* Agentic Mode - Show 3 agent models */}
+        {agenticConfig?.enabled ? (
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-1.5">
+                <Users size={12} className="text-purple-400" />
+                <label className="text-[10px] uppercase font-bold text-purple-400">
+                  Peer Review Mode
+                </label>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                3 Agents
+              </span>
             </div>
-            {apiProvider === 'ollama' && (
-              <button 
-                onClick={onOpenModelManager} 
-                className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1"
+            <div className="space-y-1.5">
+              {agenticConfig.agents.map((agent, idx) => (
+                <div key={agent.id} className="flex items-center gap-2">
+                  <Tooltip content={agent.name} position="right">
+                    <Bot size={12} className={
+                      idx === 0 ? 'text-blue-400' : 
+                      idx === 1 ? 'text-green-400' : 'text-orange-400'
+                    } />
+                  </Tooltip>
+                  <select 
+                    value={agent.model} 
+                    onChange={(e) => onAgentModelChange?.(idx, e.target.value)} 
+                    className="flex-1 bg-theme-bg-secondary border border-theme-border-secondary text-theme-text-primary text-[11px] rounded-lg p-1.5 appearance-none focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 transition-all cursor-pointer"
+                  >
+                    <option value="" disabled>Select...</option>
+                    {models.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* Single Model - Original UI */
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <div className="flex items-center gap-1.5">
+                {apiProvider === 'groq' ? (
+                  <Cloud size={12} className="text-purple-400" />
+                ) : (
+                  <Server size={12} className="text-indigo-400" />
+                )}
+                <label className="text-[10px] uppercase font-bold text-theme-text-muted">
+                  {apiProvider === 'groq' ? 'Groq Model' : 'Ollama Model'}
+                </label>
+              </div>
+              {apiProvider === 'ollama' && (
+                <button 
+                  onClick={onOpenModelManager} 
+                  className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1"
+                >
+                  <DownloadCloud size={10} /> Install
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <select 
+                value={selectedModel} 
+                onChange={(e) => onModelChange(e.target.value)} 
+                className="w-full bg-theme-bg-secondary border border-theme-border-secondary text-theme-text-primary text-sm rounded-lg p-2.5 pr-8 appearance-none focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all cursor-pointer"
               >
-                <DownloadCloud size={10} /> Install
-              </button>
-            )}
+                <option value="" disabled>Select a model...</option>
+                {models.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-3 text-theme-text-muted pointer-events-none" />
+            </div>
           </div>
-          <div className="relative">
-            <select 
-              value={selectedModel} 
-              onChange={(e) => onModelChange(e.target.value)} 
-              className="w-full bg-theme-bg-secondary border border-theme-border-secondary text-theme-text-primary text-sm rounded-lg p-2.5 pr-8 appearance-none focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all cursor-pointer"
-            >
-              <option value="" disabled>Select a model...</option>
-              {models.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-3 text-theme-text-muted pointer-events-none" />
-          </div>
-        </div>
+        )}
 
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-2">

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle, Brain, Zap, Cloud, Server } from 'lucide-react';
+import { Settings, X, RefreshCw, Sliders, Wrench, ToggleLeft, ToggleRight, Key, Database, ChevronDown, Loader2, Sun, Moon, Monitor, Download, Upload, Check, AlertCircle, Brain, Zap, Cloud, Server, Users, Bot, Code2, Terminal, StopCircle } from 'lucide-react';
 import { Button } from './Button';
-import type { ModelParams, ApiProvider, ConnectionStatus } from '../types';
+import type { ModelParams, ApiProvider, ConnectionStatus, PeerReviewConfig, AgentConfig, Model, PyodideConfig } from '../types';
 import { formatBytes, getApiUrl } from '../utils/helpers';
 import { toolRegistry, setToolConfig, getToolConfigValue } from '../utils/tools';
 import { downloadExport, readImportFile, importData, type ExportData } from '../utils/storage';
 import { useTheme } from '../contexts/ThemeContext';
 import { getGroqApiKey, setGroqApiKey, hasGroqApiKey, testGroqConnection } from '../utils/groq';
+import { saveAgenticConfig } from '../utils/agentic';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -32,6 +33,17 @@ interface SettingsModalProps {
   onApiProviderChange: (provider: ApiProvider) => void;
   groqConnectionStatus: ConnectionStatus;
   onTestGroqConnection: () => void;
+  // Agentic mode (Peer Review)
+  agenticConfig: PeerReviewConfig;
+  onAgenticConfigChange: (config: PeerReviewConfig) => void;
+  availableModels: Model[];
+  // Pyodide (WebAssembly Python)
+  pyodideConfig: PyodideConfig;
+  onPyodideConfigChange: (config: PyodideConfig) => void;
+  pyodideStatus: { ready: boolean; loading: boolean; progress?: string; useWorker?: boolean };
+  pyodideOutput: { stdout: string; stderr: string };
+  onStopPythonExecution: () => void;
+  onClearPyodideOutput: () => void;
 }
 
 const defaultParams: ModelParams = {
@@ -70,10 +82,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   apiProvider,
   onApiProviderChange,
   groqConnectionStatus,
-  onTestGroqConnection
+  onTestGroqConnection,
+  agenticConfig,
+  onAgenticConfigChange,
+  availableModels,
+  pyodideConfig,
+  onPyodideConfigChange,
+  pyodideStatus,
+  pyodideOutput,
+  onStopPythonExecution,
+  onClearPyodideOutput
 }) => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [agenticOpen, setAgenticOpen] = useState(false);
+  const [pyodideOpen, setPyodideOpen] = useState(false);
   const [, forceUpdate] = useState({});
   const [tavilyApiKey, setTavilyApiKey] = useState(getToolConfigValue('tavilyApiKey') || '');
   const [embeddingModel, setEmbeddingModel] = useState(getToolConfigValue('embeddingModel') || 'mxbai-embed-large:latest');
@@ -430,6 +453,295 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Wrench size={16} />{toolsOpen ? 'Hide Tools' : 'Show Tools (Function Calling)'}
             </button>
           </div>
+          
+          {/* Agentic Mode Toggle */}
+          <div className="pt-2 border-t border-theme-border-primary">
+            <button 
+              onClick={() => setAgenticOpen(!agenticOpen)} 
+              className="flex items-center gap-2 text-sm text-purple-400 font-medium hover:text-purple-300"
+            >
+              <Users size={16} />{agenticOpen ? 'Hide Agentic Mode' : 'Show Agentic Mode (Peer Review)'}
+            </button>
+          </div>
+          
+          {/* Pyodide (Python) Toggle */}
+          <div className="pt-2 border-t border-theme-border-primary">
+            <button 
+              onClick={() => setPyodideOpen(!pyodideOpen)} 
+              className="flex items-center gap-2 text-sm text-cyan-400 font-medium hover:text-cyan-300"
+            >
+              <Code2 size={16} />{pyodideOpen ? 'Hide Python Validation' : 'Show Python Validation (Pyodide)'}
+            </button>
+          </div>
+          
+          {/* Agentic Mode Settings */}
+          {agenticOpen && (
+            <div className="space-y-4 pt-2">
+              {/* Global Toggle */}
+              <div className="flex items-center justify-between p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary">
+                <div>
+                  <div className="text-sm font-medium text-theme-text-primary flex items-center gap-2">
+                    <Users size={14} className="text-purple-400" />
+                    Enable Peer Review Mode
+                  </div>
+                  <div className="text-[10px] text-theme-text-muted mt-0.5">
+                    Three AI agents work together: Write → Review → Revise
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const newConfig = { ...agenticConfig, enabled: !agenticConfig.enabled };
+                    onAgenticConfigChange(newConfig);
+                    saveAgenticConfig(newConfig);
+                  }}
+                  className={`transition-colors ${agenticConfig.enabled ? 'text-purple-400' : 'text-theme-text-muted'}`}
+                >
+                  {agenticConfig.enabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                </button>
+              </div>
+
+              {agenticConfig.enabled && (
+                <>
+                  <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider">Configure Agents</div>
+                  
+                  {/* Agent Cards */}
+                  <div className="space-y-3">
+                    {agenticConfig.agents.map((agent, idx) => (
+                      <div key={agent.id} className="p-3 bg-theme-bg-primary rounded-lg border border-purple-500/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Bot size={14} className={
+                              idx === 0 ? 'text-blue-400' : 
+                              idx === 1 ? 'text-green-400' : 'text-orange-400'
+                            } />
+                            <span className="text-sm font-medium text-theme-text-primary">{agent.name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded capitalize">
+                              {agent.role}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Model Selector */}
+                        <div className="relative">
+                          <select
+                            value={agent.model}
+                            onChange={(e) => {
+                              const newAgents = [...agenticConfig.agents] as [AgentConfig, AgentConfig, AgentConfig];
+                              newAgents[idx] = { ...newAgents[idx], model: e.target.value };
+                              const newConfig = { ...agenticConfig, agents: newAgents };
+                              onAgenticConfigChange(newConfig);
+                              saveAgenticConfig(newConfig);
+                            }}
+                            className="w-full bg-theme-bg-secondary border border-theme-border-secondary rounded px-2 py-1.5 text-xs text-theme-text-secondary focus:border-purple-500 focus:outline-none appearance-none cursor-pointer pr-8"
+                          >
+                            <option value="">Select model...</option>
+                            {availableModels.map((model) => (
+                              <option key={model.name} value={model.name}>
+                                {model.name}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-text-muted pointer-events-none" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Show Intermediate Steps Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary">
+                    <div>
+                      <div className="text-sm font-medium text-theme-text-primary">Show Agent Steps</div>
+                      <div className="text-[10px] text-theme-text-muted mt-0.5">
+                        {agenticConfig.showIntermediateSteps 
+                          ? 'Shows all phases: Solution → Review → Correction' 
+                          : 'Shows only the final corrected result'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newConfig = { ...agenticConfig, showIntermediateSteps: !agenticConfig.showIntermediateSteps };
+                        onAgenticConfigChange(newConfig);
+                        saveAgenticConfig(newConfig);
+                      }}
+                      className={`transition-colors ${agenticConfig.showIntermediateSteps ? 'text-purple-400' : 'text-theme-text-muted'}`}
+                    >
+                      {agenticConfig.showIntermediateSteps ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                    </button>
+                  </div>
+
+                  <div className="text-[10px] text-theme-text-muted bg-purple-500/10 p-3 rounded-lg border border-purple-500/20">
+                    <strong className="text-purple-400">How it works:</strong>
+                    <ul className="mt-1 space-y-1 list-disc list-inside">
+                      <li>Phase 1: Expert writes the initial solution</li>
+                      <li>Phase 2: Reviewer validates with trace tests</li>
+                      <li>Phase 3: Refiner applies corrections if needed</li>
+                    </ul>
+                    <p className="mt-2 text-theme-text-muted/80">
+                      Tip: Use different models for diverse perspectives (e.g., llama3, qwen, mistral)
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Pyodide (Python Validation) Settings */}
+          {pyodideOpen && (
+            <div className="space-y-4 pt-2">
+              {/* Status Banner */}
+              <div className={`p-3 rounded-lg border ${
+                pyodideStatus.ready 
+                  ? 'bg-cyan-500/10 border-cyan-500/30' 
+                  : pyodideStatus.loading 
+                    ? 'bg-amber-500/10 border-amber-500/30'
+                    : 'bg-theme-bg-primary border-theme-border-primary'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {pyodideStatus.loading ? (
+                      <Loader2 size={14} className="text-amber-400 animate-spin" />
+                    ) : pyodideStatus.ready ? (
+                      <Check size={14} className="text-cyan-400" />
+                    ) : (
+                      <AlertCircle size={14} className="text-theme-text-muted" />
+                    )}
+                    <span className="text-sm font-medium text-theme-text-primary">
+                      {pyodideStatus.loading ? 'Loading...' : pyodideStatus.ready ? 'Pyodide Ready' : 'Not Loaded'}
+                    </span>
+                    {pyodideStatus.useWorker && (
+                      <span className="text-[9px] px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded">Web Worker</span>
+                    )}
+                  </div>
+                  {pyodideStatus.loading && (
+                    <span className="text-[10px] text-theme-text-muted">{pyodideStatus.progress}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Enable Toggle */}
+              <div className="flex items-center justify-between p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary">
+                <div>
+                  <div className="text-sm font-medium text-theme-text-primary flex items-center gap-2">
+                    <Code2 size={14} className="text-cyan-400" />
+                    Enable Python Validation
+                  </div>
+                  <div className="text-[10px] text-theme-text-muted mt-0.5">
+                    Validate Python code blocks in AI responses using WebAssembly
+                  </div>
+                </div>
+                <button
+                  onClick={() => onPyodideConfigChange({ ...pyodideConfig, enabled: !pyodideConfig.enabled })}
+                  className={`transition-colors ${pyodideConfig.enabled ? 'text-cyan-400' : 'text-theme-text-muted'}`}
+                >
+                  {pyodideConfig.enabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                </button>
+              </div>
+
+              {pyodideConfig.enabled && (
+                <>
+                  {/* Auto Install Packages */}
+                  <div className="flex items-center justify-between p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary">
+                    <div>
+                      <div className="text-sm font-medium text-theme-text-primary">Auto-Install Packages</div>
+                      <div className="text-[10px] text-theme-text-muted mt-0.5">
+                        Automatically detect and install missing Python packages via micropip
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onPyodideConfigChange({ ...pyodideConfig, autoInstallPackages: !pyodideConfig.autoInstallPackages })}
+                      className={`transition-colors ${pyodideConfig.autoInstallPackages ? 'text-cyan-400' : 'text-theme-text-muted'}`}
+                    >
+                      {pyodideConfig.autoInstallPackages ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                    </button>
+                  </div>
+
+                  {/* Show Output */}
+                  <div className="flex items-center justify-between p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary">
+                    <div>
+                      <div className="text-sm font-medium text-theme-text-primary">Show Output</div>
+                      <div className="text-[10px] text-theme-text-muted mt-0.5">
+                        Display stdout/stderr from Python execution
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onPyodideConfigChange({ ...pyodideConfig, showOutput: !pyodideConfig.showOutput })}
+                      className={`transition-colors ${pyodideConfig.showOutput ? 'text-cyan-400' : 'text-theme-text-muted'}`}
+                    >
+                      {pyodideConfig.showOutput ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                    </button>
+                  </div>
+
+                  {/* Timeout Setting */}
+                  <div className="p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-medium text-theme-text-primary">Execution Timeout</div>
+                      <span className="text-xs text-cyan-400 font-mono">
+                        {pyodideConfig.timeout === 0 ? 'No limit' : `${pyodideConfig.timeout / 1000}s`}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="60000"
+                      step="5000"
+                      value={pyodideConfig.timeout}
+                      onChange={(e) => onPyodideConfigChange({ ...pyodideConfig, timeout: Number(e.target.value) })}
+                      className="w-full h-1.5 bg-theme-bg-secondary rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                    <div className="flex justify-between text-[9px] text-theme-text-muted mt-1">
+                      <span>No limit</span>
+                      <span>60s</span>
+                    </div>
+                  </div>
+
+                  {/* Output Console */}
+                  {pyodideConfig.showOutput && (pyodideOutput.stdout || pyodideOutput.stderr) && (
+                    <div className="p-3 bg-theme-bg-primary rounded-lg border border-theme-border-primary">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Terminal size={14} className="text-cyan-400" />
+                          <span className="text-sm font-medium text-theme-text-primary">Python Output</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={onStopPythonExecution}
+                            className="text-[10px] px-2 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 flex items-center gap-1"
+                          >
+                            <StopCircle size={12} /> Stop
+                          </button>
+                          <button
+                            onClick={onClearPyodideOutput}
+                            className="text-[10px] px-2 py-1 bg-theme-bg-secondary text-theme-text-muted rounded hover:bg-theme-bg-tertiary"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="font-mono text-[10px] max-h-32 overflow-auto">
+                        {pyodideOutput.stdout && (
+                          <pre className="text-theme-text-secondary whitespace-pre-wrap">{pyodideOutput.stdout}</pre>
+                        )}
+                        {pyodideOutput.stderr && (
+                          <pre className="text-red-400 whitespace-pre-wrap">{pyodideOutput.stderr}</pre>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Info Box */}
+                  <div className="text-[10px] text-theme-text-muted bg-cyan-500/10 p-3 rounded-lg border border-cyan-500/20">
+                    <strong className="text-cyan-400">Pyodide Features:</strong>
+                    <ul className="mt-1 space-y-1 list-disc list-inside">
+                      <li>Runs Python in browser via WebAssembly</li>
+                      <li>Non-blocking execution in Web Worker</li>
+                      <li>Supports interrupting long-running code</li>
+                      <li>Can install PyPI packages via micropip</li>
+                    </ul>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           
           {/* Tools Settings */}
           {toolsOpen && (

@@ -1,7 +1,7 @@
 {
   "name": "neural-nexus-ui",
-  "version": "1.1.25",
-  "description": "A modern chat interface for Ollama and Groq with voice mode and knowledge base",
+  "version": "1.2.0",
+  "description": "A modern chat interface for Ollama and Groq with voice mode, knowledge base, and multi-agent peer review",
   "private": true,
   "type": "module",
   "scripts": {

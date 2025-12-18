@@ -114,3 +114,42 @@ export {
   GROQ_RECOMMENDED_MODELS,
   getKnownGroqModels
 } from './groq';
+
+// Agentic system (Peer Review Pattern)
+export {
+  defaultAgentConfigs,
+  loadAgenticConfig,
+  saveAgenticConfig,
+  runPeerReview,
+  formatPeerReviewAsMessage,
+  getPeerReviewSummary,
+  type PeerReviewCallbacks
+} from './agentic';
+
+// Pyodide - Python code validation in browser (WebAssembly)
+// Enhanced with Web Worker, interrupt/timeout, stdout/stderr capture, micropip
+export {
+  loadPyodideInstance,
+  isPyodideReady,
+  validatePythonSyntax,
+  executePythonCode,
+  executePythonExpression,
+  testPythonFunction,
+  validatePythonCode,
+  isPythonSyntaxValid,
+  detectCodeLanguage,
+  // New enhanced functions
+  installPackages,
+  interruptExecution,
+  setOutputCallback,
+  setProgressCallback,
+  getPyodideStatus,
+  // Types
+  type PythonValidationResult,
+  type PythonExecutionResult,
+  type CodeValidationOptions,
+  type CodeValidationReport,
+  type PyodideLoadingProgress,
+  type ProgressCallback,
+  type OutputCallback
+} from './pyodide';

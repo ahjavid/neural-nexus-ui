@@ -11,7 +11,8 @@ import {
   FileText,
   FileSpreadsheet,
   Loader2,
-  Wrench
+  Wrench,
+  Users
 } from 'lucide-react';
 import { Tooltip } from './Tooltip';
 import type { Attachment } from '../types';
@@ -27,6 +28,7 @@ interface ChatInputProps {
   onToggleListening: () => void;
   streaming: boolean;
   executingTools?: boolean;
+  agenticProcessing?: boolean;
   onStop: () => void;
   selectedModel: string;
   slashCmdsVisible: boolean;
@@ -47,6 +49,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onToggleListening,
   streaming,
   executingTools = false,
+  agenticProcessing = false,
   onStop,
   selectedModel,
   slashCmdsVisible,
@@ -221,6 +224,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
           
           <div className="flex items-center gap-1 sm:gap-2">
+            {agenticProcessing && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-purple-500/10 rounded-md border border-purple-500/30 animate-pulse">
+                <Users size={12} className="text-purple-400" />
+                <span className="text-[10px] text-purple-400 font-medium">Peer Review...</span>
+              </div>
+            )}
             {executingTools && (
               <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/30 animate-pulse">
                 <Wrench size={12} className="text-emerald-400" />

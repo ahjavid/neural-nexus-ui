@@ -2,12 +2,20 @@
 
 A modern, feature-rich chat interface for [Ollama](https://ollama.ai) and [Groq](https://groq.com) - run AI models locally or blazing-fast in the cloud.
 
-![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.1.25-orange)
+![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.2.0-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
 ## ✨ Features
 
+### 🆕 New in v1.2.0
+- **🤖 Multi-Agent Peer Review** - Three AI agents collaborate: Expert writes, Adversary reviews, Refiner corrects
+- **🐍 Python Validation (Pyodide)** - Validate Python code in AI responses using WebAssembly
+- **🧪 Code Syntax Checking** - Automatic syntax validation for Python and JavaScript code blocks
+- **👥 Agent Configuration** - Configure different models for each agent role
+- **🔄 Smart Model Filtering** - Automatically filters out embedding-only models from chat selection
+
+### Core Features
 - **🚀 Dual Provider Support** - Ollama (local) and Groq (cloud) with seamless switching
 - **⚡ Groq Integration** - Blazing-fast cloud inference (100-500+ tokens/sec) with Llama 4, Qwen 3, and more
 - **🎨 Light & Dark Themes** - Professional color palette with system preference detection
@@ -155,10 +163,12 @@ neural-nexus-ui/
 │   ├── contexts/         # React contexts
 │   │   └── ThemeContext.tsx
 │   ├── utils/            # Utility functions
+│   │   ├── agentic.ts    # Multi-agent peer review system
 │   │   ├── documents.ts  # PDF/Word/Excel processing + chunking
 │   │   ├── groq.ts       # Groq API via official groq-sdk (streaming, models)
 │   │   ├── helpers.ts    # Formatting helpers
 │   │   ├── neurosymbolic.ts # Neurosymbolic AI (entity extraction, knowledge graph, hybrid search)
+│   │   ├── pyodide.ts    # Python validation via WebAssembly (Pyodide)
 │   │   ├── storage.ts    # IndexedDB manager
 │   │   ├── tools.ts      # Tool registry and handlers
 │   │   └── index.ts

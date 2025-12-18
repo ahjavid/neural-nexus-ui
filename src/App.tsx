@@ -57,8 +57,30 @@ import type {
   ToolCall,
   ToolDefinition,
   ApiProvider,
-  UnifiedModel
+  UnifiedModel,
+  PeerReviewConfig,
+  AgentConfig,
+  PyodideConfig
 } from './types';
+
+// Agentic System
+import { 
+  loadAgenticConfig, 
+  saveAgenticConfig, 
+  runPeerReview, 
+  formatPeerReviewAsMessage 
+} from './utils/agentic';
+
+// Pyodide - Python code validation in browser
+import {
+  loadPyodideInstance,
+  validatePythonSyntax,
+  detectCodeLanguage,
+  interruptExecution,
+  setOutputCallback,
+  setProgressCallback,
+  type PyodideLoadingProgress
+} from './utils/pyodide';
 
 // PDF.js setup
 import * as pdfjsLib from 'pdfjs-dist';
@@ -160,6 +182,29 @@ export default function App() {
   });
   const [groqModels, setGroqModels] = useState<UnifiedModel[]>([]);
   const [groqConnectionStatus, setGroqConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  
+  // State: Agentic System (Peer Review)
+  const [agenticConfig, setAgenticConfig] = useState<PeerReviewConfig>(loadAgenticConfig);
+  const [agenticProcessing, setAgenticProcessing] = useState(false);
+  
+  // State: Pyodide (WebAssembly Python)
+  const defaultPyodideConfig: PyodideConfig = {
+    enabled: true,
+    autoInstallPackages: false,
+    timeout: 10000, // 10 seconds default
+    showOutput: true
+  };
+  const [pyodideConfig, setPyodideConfig] = useState<PyodideConfig>(() => {
+    const saved = localStorage.getItem('nexus_pyodide_config');
+    return saved ? { ...defaultPyodideConfig, ...JSON.parse(saved) } : defaultPyodideConfig;
+  });
+  const [pyodideStatus, setPyodideStatus] = useState<{
+    ready: boolean;
+    loading: boolean;
+    progress?: string;
+    useWorker?: boolean;
+  }>({ ready: false, loading: false });
+  const [pyodideOutput, setPyodideOutput] = useState<{ stdout: string; stderr: string }>({ stdout: '', stderr: '' });
   
   const [pullProgress, setPullProgress] = useState<{
     status: string;
@@ -263,6 +308,65 @@ export default function App() {
       }
     };
   }, [sessions, isLoading]);
+
+  // Save Pyodide config to localStorage
+  useEffect(() => {
+    localStorage.setItem('nexus_pyodide_config', JSON.stringify(pyodideConfig));
+  }, [pyodideConfig]);
+
+  // Preload Pyodide for Python code validation (non-blocking)
+  useEffect(() => {
+    if (!pyodideConfig.enabled) return;
+    
+    // Setup output callback for real-time stdout/stderr
+    setOutputCallback((type, content) => {
+      setPyodideOutput(prev => ({
+        ...prev,
+        [type]: prev[type as 'stdout' | 'stderr'] + content
+      }));
+    });
+    
+    // Setup progress callback
+    setProgressCallback((progress: PyodideLoadingProgress) => {
+      setPyodideStatus(prev => ({
+        ...prev,
+        loading: progress.stage !== 'ready' && progress.stage !== 'error',
+        progress: progress.message
+      }));
+    });
+    
+    // Start loading Pyodide in background after a short delay
+    const timer = setTimeout(() => {
+      setPyodideStatus(prev => ({ ...prev, loading: true, progress: 'Initializing...' }));
+      
+      loadPyodideInstance((progress) => {
+        setPyodideStatus(prev => ({
+          ...prev,
+          loading: progress.stage !== 'ready' && progress.stage !== 'error',
+          progress: progress.message
+        }));
+      })
+        .then((result) => {
+          setPyodideStatus({
+            ready: result.ready,
+            loading: false,
+            useWorker: result.useWorker,
+            progress: result.ready ? 'Ready' : 'Failed to load'
+          });
+          console.log(`[Pyodide] ${result.ready ? 'Ready' : 'Failed'}${result.useWorker ? ' (Web Worker)' : ' (Main Thread)'}`);
+        })
+        .catch((e) => {
+          setPyodideStatus({ ready: false, loading: false, progress: `Error: ${e}` });
+          console.log('[Pyodide] Preload failed:', e);
+        });
+    }, 3000); // Wait 3 seconds after app loads
+    
+    return () => {
+      clearTimeout(timer);
+      setOutputCallback(null);
+      setProgressCallback(null);
+    };
+  }, [pyodideConfig.enabled]);
 
   // Save knowledge base to IndexedDB and localStorage (for tools)
   useEffect(() => {
@@ -378,9 +482,39 @@ export default function App() {
       const res = await fetch(getApiUrl(endpoint, '/api/tags'));
       if (!res.ok) throw new Error('Failed to connect');
       const data = await res.json();
-      setModels(data.models || []);
-      if (data.models.length > 0 && !selectedModel && apiProvider === 'ollama') {
-        updateCurrentSession({ model: data.models[0].name });
+      const allModels = data.models || [];
+      
+      // Filter out embedding-only models (check capabilities)
+      const chatModels: Model[] = [];
+      for (const model of allModels) {
+        try {
+          const showRes = await fetch(getApiUrl(endpoint, '/api/show'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: model.name })
+          });
+          if (showRes.ok) {
+            const showData = await showRes.json();
+            const capabilities = showData.capabilities || [];
+            // Include model if it has completion capability OR doesn't have embedding-only
+            // (some models may not report capabilities, so include those too)
+            const isEmbeddingOnly = capabilities.length === 1 && capabilities.includes('embedding');
+            if (!isEmbeddingOnly) {
+              chatModels.push(model);
+            }
+          } else {
+            // If we can't check, include the model
+            chatModels.push(model);
+          }
+        } catch {
+          // If check fails, include the model
+          chatModels.push(model);
+        }
+      }
+      
+      setModels(chatModels);
+      if (chatModels.length > 0 && !selectedModel && apiProvider === 'ollama') {
+        updateCurrentSession({ model: chatModels[0].name });
       }
       setConnectionStatus('connected');
     } catch (err) {
@@ -466,6 +600,17 @@ export default function App() {
 
   // Get current connection status based on provider  
   const currentConnectionStatus = apiProvider === 'groq' ? groqConnectionStatus : connectionStatus;
+
+  // Handle agent model change in agentic mode
+  const handleAgentModelChange = useCallback((agentIdx: number, model: string) => {
+    setAgenticConfig(prev => {
+      const newAgents = [...prev.agents] as [AgentConfig, AgentConfig, AgentConfig];
+      newAgents[agentIdx] = { ...newAgents[agentIdx], model };
+      const newConfig = { ...prev, agents: newAgents };
+      saveAgenticConfig(newConfig);
+      return newConfig;
+    });
+  }, []);
 
   const deleteSession = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
@@ -858,6 +1003,109 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  // Stop any running Python code execution
+  const stopPythonExecution = useCallback(() => {
+    const interrupted = interruptExecution();
+    if (interrupted) {
+      console.log('[Pyodide] Execution interrupted');
+    }
+  }, []);
+
+  // Clear Pyodide output
+  const clearPyodideOutput = useCallback(() => {
+    setPyodideOutput({ stdout: '', stderr: '' });
+  }, []);
+
+  // ============================================
+  // PYODIDE CODE VALIDATION FOR ASSISTANT RESPONSES
+  // Validates Python code blocks using WebAssembly
+  // ============================================
+  const validateResponseCodeBlocks = async (content: string): Promise<string> => {
+    // Skip if Pyodide is disabled
+    if (!pyodideConfig.enabled) {
+      console.log('[Pyodide Validation] Skipped - disabled in settings');
+      return content;
+    }
+    
+    // Skip if Pyodide not ready
+    if (!pyodideStatus.ready) {
+      console.log('[Pyodide Validation] Skipped - not ready yet');
+      return content;
+    }
+    
+    // Extract code blocks from markdown
+    const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)```/g;
+    const codeBlocks: Array<{ lang: string; code: string; start: number; end: number }> = [];
+    
+    let match;
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      const lang = match[1]?.toLowerCase() || '';
+      const code = match[2];
+      codeBlocks.push({ 
+        lang, 
+        code, 
+        start: match.index, 
+        end: match.index + match[0].length 
+      });
+    }
+    
+    if (codeBlocks.length === 0) {
+      console.log('[Pyodide Validation] No code blocks found in response');
+      return content;
+    }
+    
+    console.log(`[Pyodide Validation] Found ${codeBlocks.length} code block(s), validating...`);
+    
+    // Validate each code block
+    const validationResults: Array<{ lang: string; error?: string }> = [];
+    
+    for (const block of codeBlocks) {
+      // Detect language if not specified
+      const detectedLang = block.lang || detectCodeLanguage(block.code);
+      
+      if (detectedLang === 'python') {
+        try {
+          console.log(`[Pyodide Validation] Validating Python code (${block.code.length} chars)...`);
+          const result = await validatePythonSyntax(block.code);
+          if (!result.isValid) {
+            const errMsg = result.syntaxError 
+              ? `Line ${result.syntaxError.line}: ${result.syntaxError.message}`
+              : result.runtimeError?.message || 'Syntax error';
+            console.log(`[Pyodide Validation] ❌ Python syntax error: ${errMsg}`);
+            validationResults.push({ lang: 'python', error: errMsg });
+          } else {
+            console.log('[Pyodide Validation] ✅ Python syntax valid');
+            validationResults.push({ lang: 'python' });
+          }
+        } catch (e) {
+          console.log('[Pyodide Validation] ⚠️ Validation failed:', e);
+          validationResults.push({ lang: 'python' });
+        }
+      } else if (detectedLang === 'javascript' || detectedLang === 'typescript') {
+        try {
+          new Function(block.code);
+          console.log(`[Pyodide Validation] ✅ ${detectedLang} syntax valid`);
+          validationResults.push({ lang: detectedLang });
+        } catch (e) {
+          console.log(`[Pyodide Validation] ❌ ${detectedLang} syntax error:`, (e as Error).message);
+          validationResults.push({ lang: detectedLang, error: (e as Error).message });
+        }
+      } else {
+        console.log(`[Pyodide Validation] Skipping ${detectedLang || 'unknown'} code block`);
+      }
+    }
+    
+    // If any validation errors, append a note
+    const errors = validationResults.filter(r => r.error);
+    if (errors.length > 0) {
+      const errorNote = '\n\n---\n⚠️ **Code Validation (Pyodide WebAssembly)**:\n' + 
+        errors.map(e => `- **${e.lang}**: ${e.error}`).join('\n');
+      return content + errorNote;
+    }
+    
+    return content;
+  };
+
   // Helper: Stream a chat response with optional tools and thinking support
   // Based on Ollama's streaming tool call pattern - handles thinking, content, and tool_calls in one stream
   // Returns tool calls if any were made, otherwise returns the final content
@@ -1037,6 +1285,29 @@ export default function App() {
             
             // If we got tool calls, don't finalize yet - we'll continue the loop
             if (toolCalls.length === 0) {
+              // Validate code blocks in the response using Pyodide
+              try {
+                const validatedContent = await validateResponseCodeBlocks(finalContent);
+                if (validatedContent !== finalContent) {
+                  finalContent = validatedContent;
+                  const elapsed = (Date.now() - startTime) / 1000;
+                  setSessions(prev => prev.map(s => {
+                    if (s.id === currentSessionId) {
+                      const newMsgs = s.messages.slice(0, -1);
+                      return { ...s, messages: [...newMsgs, { 
+                        role: 'assistant', 
+                        content: finalContent,
+                        timing: elapsed.toFixed(1),
+                        tokenSpeed: ((tokens + thinkingTokens) / elapsed).toFixed(1)
+                      }] };
+                    }
+                    return s;
+                  }));
+                }
+              } catch (e) {
+                console.log('[Code Validation] Skipped:', e);
+              }
+              
               setStreaming(false);
               abortControllerRef.current = null;
               lastAssistantResponseRef.current = finalContent;
@@ -1110,6 +1381,29 @@ export default function App() {
       }
 
       if (chunk.type === 'done') {
+        // Validate code blocks in the response using Pyodide
+        try {
+          const validatedContent = await validateResponseCodeBlocks(finalContent);
+          if (validatedContent !== finalContent) {
+            finalContent = validatedContent;
+            const elapsed = (Date.now() - startTime) / 1000;
+            setSessions(prev => prev.map(s => {
+              if (s.id === currentSessionId) {
+                const newMsgs = s.messages.slice(0, -1);
+                return { ...s, messages: [...newMsgs, { 
+                  role: 'assistant', 
+                  content: finalContent,
+                  timing: elapsed.toFixed(1),
+                  tokenSpeed: (tokens / elapsed).toFixed(1)
+                }] };
+              }
+              return s;
+            }));
+          }
+        } catch (e) {
+          console.log('[Code Validation - Groq] Skipped:', e);
+        }
+        
         setStreaming(false);
         abortControllerRef.current = null;
         lastAssistantResponseRef.current = finalContent;
@@ -1127,7 +1421,121 @@ export default function App() {
       executeSlashCommand(txt.trim());
       return;
     }
-    if ((!txt.trim() && attachments.length === 0) || !selectedModel) return;
+    if ((!txt.trim() && attachments.length === 0)) return;
+    
+    // ============================================
+    // AGENTIC MODE: Peer Review Pattern
+    // ============================================
+    if (agenticConfig.enabled) {
+      // Validate all agents have models configured
+      const allAgentsConfigured = agenticConfig.agents.every(a => a.model);
+      if (!allAgentsConfigured) {
+        setSessions(prev => prev.map(s =>
+          s.id === currentSessionId
+            ? { ...s, messages: [...s.messages, { 
+                role: 'assistant', 
+                content: '⚠️ **Agentic Mode Error:** Please configure models for all three agents in Settings → Agentic Mode.' 
+              }] }
+            : s
+        ));
+        return;
+      }
+
+      const userMsg: Message = {
+        role: 'user',
+        content: txt,
+        displayContent: txt,
+        attachments: attachments
+      };
+
+      const updatedMessages = [...messages, userMsg];
+      updateCurrentSession({ messages: updatedMessages });
+
+      if (messages.length === 0) {
+        const title = txt.slice(0, 30) + (txt.length > 30 ? '...' : '');
+        updateCurrentSession({ title });
+      }
+
+      setInput('');
+      setAttachments([]);
+      setStreaming(true);
+      setAgenticProcessing(true);
+      abortControllerRef.current = new AbortController();
+
+      try {
+        // Add "thinking" message while processing
+        updateCurrentSession({
+          messages: [...updatedMessages, { 
+            role: 'assistant', 
+            content: '🔄 **Peer Review in progress...**\n\n*Phase 1: All agents working on initial response...*',
+            timing: '0'
+          }]
+        });
+
+        const response = await runPeerReview(
+          txt,
+          agenticConfig,
+          apiProvider,
+          endpoint,
+          {
+            onPhaseStart: (phase, _results) => {
+              const phaseMessages: Record<string, string> = {
+                initial: '🔄 **Peer Review in progress...**\n\n*Phase 1: All agents working on initial response...*',
+                review: '🔄 **Peer Review in progress...**\n\n*Phase 2: Agents reviewing each other\'s work...*',
+                revision: '🔄 **Peer Review in progress...**\n\n*Phase 3: Agents revising based on feedback...*'
+              };
+              setSessions(prev => prev.map(s => {
+                if (s.id !== currentSessionId) return s;
+                const msgs = s.messages.slice(0, -1);
+                return { ...s, messages: [...msgs, { role: 'assistant', content: phaseMessages[phase], timing: '0' }] };
+              }));
+            }
+          },
+          abortControllerRef.current.signal
+        );
+
+        // Format the response - respect user's preference to show/hide intermediate steps
+        const formattedResponse = formatPeerReviewAsMessage(response, agenticConfig.showIntermediateSteps);
+        
+        setSessions(prev => prev.map(s => {
+          if (s.id !== currentSessionId) return s;
+          const msgs = s.messages.slice(0, -1); // Remove the "processing" message
+          return { 
+            ...s, 
+            messages: [...msgs, { 
+              role: 'assistant', 
+              content: formattedResponse,
+              timing: response.totalTime.toFixed(1)
+            }] 
+          };
+        }));
+
+        lastAssistantResponseRef.current = formattedResponse;
+        if (isVoice) {
+          // Extract just the final revisions for voice
+          const voiceSummary = response.phases.revision.map(r => r.content).join('\n\n');
+          speakMessage(voiceSummary.slice(0, 500));
+        }
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          setSessions(prev => prev.map(s =>
+            s.id === currentSessionId
+              ? { ...s, messages: [...s.messages.slice(0, -1), { role: 'assistant', content: `**Peer Review Error:** ${(err as Error).message}` }] }
+              : s
+          ));
+        }
+      } finally {
+        setStreaming(false);
+        setAgenticProcessing(false);
+        abortControllerRef.current = null;
+      }
+      return;
+    }
+    
+    // ============================================
+    // SINGLE MODEL MODE (Original flow)
+    // ============================================
+    if (!selectedModel) return;
     
     // Validate that selected model is valid for current provider
     const isValidModel = apiProvider === 'groq' 
@@ -1525,6 +1933,8 @@ export default function App() {
           onOpenHelp={() => setHelpOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           apiProvider={apiProvider}
+          agenticConfig={agenticConfig}
+          onAgentModelChange={handleAgentModelChange}
         />
       )}
 
@@ -1672,8 +2082,9 @@ export default function App() {
           }}
           streaming={streaming}
           executingTools={executingTools}
+          agenticProcessing={agenticProcessing}
           onStop={() => abortControllerRef.current?.abort()}
-          selectedModel={selectedModel}
+          selectedModel={agenticConfig.enabled ? 'agentic' : selectedModel}
           slashCmdsVisible={slashCmdsVisible}
           onExecuteSlashCommand={executeSlashCommand}
           fileError={fileError}
@@ -1730,6 +2141,17 @@ export default function App() {
           onApiProviderChange={switchApiProvider}
           groqConnectionStatus={groqConnectionStatus}
           onTestGroqConnection={checkGroqConnection}
+          // Agentic mode props
+          agenticConfig={agenticConfig}
+          onAgenticConfigChange={setAgenticConfig}
+          availableModels={availableModels}
+          // Pyodide props
+          pyodideConfig={pyodideConfig}
+          onPyodideConfigChange={setPyodideConfig}
+          pyodideStatus={pyodideStatus}
+          pyodideOutput={pyodideOutput}
+          onStopPythonExecution={stopPythonExecution}
+          onClearPyodideOutput={clearPyodideOutput}
         />
 
         <ModelManagerModal

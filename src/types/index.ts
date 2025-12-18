@@ -239,3 +239,53 @@ export interface UnifiedModel {
   supportsTools?: boolean;
   supportsVision?: boolean;
 }
+
+// ============================================
+// Agentic System Types (Peer Review Pattern)
+// ============================================
+
+export type AgenticMode = 'single' | 'peer-review';
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  model: string;
+  role: 'implementer' | 'reviewer' | 'validator' | 'synthesizer' | 'writer' | 'analyst';
+  systemPrompt?: string;
+}
+
+export interface PeerReviewConfig {
+  enabled: boolean;
+  agents: [AgentConfig, AgentConfig, AgentConfig]; // Exactly 3 agents for peer review
+  showIntermediateSteps: boolean; // Show all agent work or just final result
+}
+
+// Pyodide (WebAssembly Python) configuration
+export interface PyodideConfig {
+  enabled: boolean;              // Enable Python code validation
+  autoInstallPackages: boolean;  // Auto-install missing packages
+  timeout: number;               // Execution timeout in ms (0 = no limit)
+  showOutput: boolean;           // Show stdout/stderr in UI
+}
+
+export interface AgentResult {
+  agentId: string;
+  agentName: string;
+  role: string;
+  phase: 'initial_work' | 'peer_review' | 'revision';
+  content: string;
+  reviewingAgent?: string;
+  feedbackFromAgent?: string;
+  timing?: string;
+  tokenSpeed?: string;
+}
+
+export interface PeerReviewResponse {
+  phases: {
+    initial: AgentResult[];
+    review: AgentResult[];
+    revision: AgentResult[];
+  };
+  finalSynthesis?: string;
+  totalTime: number;
+}
