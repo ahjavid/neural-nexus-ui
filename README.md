@@ -593,7 +593,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📋 Changelog
 
-### v1.1.25 (January 2025)
+### v1.2.0 (December 2025)
+- **🤖 Multi-Agent Peer Review** - Three AI agents collaborate: Expert writes solution, Adversary reviews with trace tests, Refiner applies corrections
+- **🐍 Python Validation (Pyodide)** - Validate Python code in AI responses using WebAssembly in the browser
+- **🧪 Code Syntax Checking** - Automatic syntax validation for Python and JavaScript code blocks
+- **👥 Agent Configuration** - Configure different models for each agent role in Settings
+- **🔄 Smart Model Filtering** - Automatically filters out embedding-only models from chat selection
+- **Settings UI** - New Agentic Mode and Python Validation sections in Settings
+- **Sidebar Enhancement** - Shows 3-agent model selector when Peer Review mode is enabled
+
+### v1.1.25 (December 2025)
 - **Official groq-sdk Integration** - Migrated from raw fetch to official `groq-sdk` package for better TypeScript types and error handling
 - **Tool Calling Disabled for Groq** - Removed tool calling from Groq due to model limitations (Groq models generate malformed tool calls)
 - **Code Cleanup** - Removed unused Groq types (`GroqModelList`, `GroqChatCompletionRequest`, `GroqStreamChunk`, etc.)
