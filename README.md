@@ -1,41 +1,30 @@
 # Neural Nexus UI
 
-A modern, feature-rich chat interface for [Ollama](https://ollama.ai) and [Groq](https://groq.com) - run AI models locally or blazing-fast in the cloud.
+> **The Neurosymbolic, Multi-Agent Workspace for Local & Cloud AI**
+>
+> *Stop settling for basic chat wrappers.*
 
 ![Neural Nexus UI](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple) ![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan) ![License](https://img.shields.io/badge/License-MIT-green) ![Version](https://img.shields.io/badge/Version-1.2.0-orange)
 
 ![Neural Nexus UI Demo](assets/ui_screenshot.gif)
 
-## ✨ Features
+Neural Nexus UI is a professional-grade AI interface designed for engineers, researchers, and power users who demand more than just a text box. Whether you are running Ollama locally for total privacy or Groq for 500+ tokens/sec cloud inference, Neural Nexus provides the architectural depth missing from standard UIs.
 
-### 🆕 New in v1.2.0
-- **🤖 Multi-Agent Peer Review** - Three AI agents collaborate: Expert writes, Adversary reviews, Refiner corrects
-- **🐍 Python Validation (Pyodide)** - Validate Python code in AI responses using WebAssembly
-- **🧪 Code Syntax Checking** - Automatic syntax validation for Python and JavaScript code blocks
-- **👥 Agent Configuration** - Configure different models for each agent role
-- **🔄 Smart Model Filtering** - Automatically filters out embedding-only models from chat selection
+It features a Neurosymbolic RAG engine that combines vector search with knowledge graphs for superior retrieval, and a Multi-Agent Peer Review system that forces models to critique and refine their own code before showing it to you.
 
-### Core Features
-- **🚀 Dual Provider Support** - Ollama (local) and Groq (cloud) with seamless switching
-- **⚡ Groq Integration** - Blazing-fast cloud inference (100-500+ tokens/sec) with Llama 4, Qwen 3, and more
-- **🎨 Light & Dark Themes** - Professional color palette with system preference detection
-- **🧠 Neurosymbolic AI Search** - Hybrid search combining neural embeddings with symbolic reasoning
-- **⚡ Persistent Embedding Cache** - Embeddings saved to IndexedDB for instant RAG on page reload
-- **🗣️ Voice Mode** - Hands-free conversation with speech recognition and text-to-speech
-- **🔧 Tool Calling** - AI can use tools for calculations, web search, RAG, and more
-- **🔍 Tavily Search** - AI-powered web search with direct answers (API key required)
-- **📄 Tavily Extract** - AI-powered content extraction from web pages (cleaner than basic fetch)
-- **📊 Knowledge Graph** - Automatic entity extraction and relation building
-- **📚 Knowledge Base** - Upload files, fetch URLs, or paste text for context
-- **🎭 Personas** - Switch between chat modes (Default, Coder, Writer, Analyst)
-- **🧘 Zen Mode** - Distraction-free, minimal interface
-- **⚙️ Advanced Settings** - Full control over model parameters (temperature, top_k, top_p, etc.)
-- **🔢 Embedding Model Selection** - Choose from available Ollama embedding models
-- **💾 Session Management** - Multiple chat sessions with auto-save using IndexedDB
-- **📎 File Attachments** - Upload images, code files, and documents
-- **📄 Document Processing** - Extract text from PDF, Word (.docx), Excel, and more
-- **⌨️ Keyboard Shortcuts** - Power user friendly
-- **🔄 Streaming Responses** - Real-time token streaming
+## 🚀 Why Neural Nexus?
+
+Most local AI interfaces are just skins around an API. Neural Nexus is a reasoning engine:
+
+- **🧠 Neurosymbolic Search (Hybrid RAG):** We don't just blindly match vectors. Our search engine fuses Neural Embeddings (semantic meaning) with Symbolic Logic (keywords, entities, and knowledge graphs) to understand exactly what you are looking for in your documents.
+
+- **🤖 Agentic Peer Review:** Enable "Peer Review Mode" to spawn three distinct AI agents—an Expert to draft, an Adversary to find flaws, and a Refiner to polish the output. It's like having a senior engineer review your code in real-time.
+
+- **⚡ Hybrid Cloud/Local Switching:** Toggle instantly between local privacy (Ollama) and blazing-fast cloud performance (Groq/Llama 3, Qwen).
+
+- **🐍 In-Browser Python Validation:** We use Pyodide (WASM) to validate AI-generated Python code directly in your browser sandbox—ensuring syntax correctness without risking your local environment.
+
+- **💾 Zero-Config Persistence:** Your embeddings, chat history, and knowledge base are stored in IndexedDB. Reload the page, and your RAG cache is instant—no re-indexing required.
 
 ## 🚀 Quick Start
 
