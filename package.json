@@ -2,6 +2,11 @@
   "name": "neural-nexus-ui",
   "version": "1.2.0",
   "description": "A modern chat interface for Ollama and Groq with voice mode, knowledge base, and multi-agent peer review",
+  "author": "ahjavid",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahjavid/neural-nexus-ui.git"
+  },
   "private": true,
   "type": "module",
   "scripts": {
